@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "swiftio",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/madmachineio/SwiftIO.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "ac937b88e5e6aabdc8945aa2804d411ade2345f6"
+      }
+    }
+  ],
+  "version" : 2
+}
