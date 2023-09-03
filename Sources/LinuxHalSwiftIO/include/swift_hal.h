@@ -15,3 +15,9 @@
 #include <swift_timer.h>
 #include <swift_uart.h>
 #include <swift_wifi.h>
+
+#include <dispatch/dispatch.h>
+
+int swifthal_spi_read_source_get(void *arg, dispatch_source_t *source);
+int swifthal_spi_write_source_get(void *arg, dispatch_source_t *source);
+
