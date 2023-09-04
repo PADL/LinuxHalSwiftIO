@@ -18,8 +18,21 @@
 
 #include <dispatch/dispatch.h>
 
-void swifthal_spi_read_notification_handler_set(
-    void *_Nonnull arg, void (^_Nonnull handler)(_Nonnull dispatch_source_t));
+#ifdef __APPLE__
+// because dispatch_data_t is unavailable in Swift
+typedef const void *swifthal_spi_dispatch_data_t;
+#else
+typedef dispatch_data_t swifthal_spi_dispatch_data_t;
+#endif
 
-void swifthal_spi_write_notification_handler_set(
-    void *_Nonnull arg, void (^_Nonnull handler)(_Nonnull dispatch_source_t));
+void swifthal_spi_async_read_with_handler(
+    void *_Nonnull arg,
+    size_t length,
+    void (^_Nonnull handler)(swifthal_spi_dispatch_data_t _Nonnull data,
+                             int error));
+
+void swifthal_spi_async_write_with_handler(
+    void *_Nonnull arg,
+    swifthal_spi_dispatch_data_t _Nonnull data,
+    void (^_Nonnull handler)(swifthal_spi_dispatch_data_t _Nullable data,
+                             int error));

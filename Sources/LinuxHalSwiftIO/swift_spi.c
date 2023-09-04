@@ -27,8 +27,6 @@
 #include <linux/spi/spidev.h>
 #endif
 #include <dispatch/dispatch.h>
-#include <stdatomic.h>
-#include <stdbool.h>
 
 #include "swift_hal.h"
 
@@ -42,7 +40,6 @@
 struct swifthal_spi {
     int fd;
     dispatch_queue_t queue;
-
     dispatch_source_t r_source;
     dispatch_source_t w_source;
 };
@@ -70,26 +67,26 @@ void *swifthal_spi_open(int id,
 
     spi->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
-    spi->w_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, spi->fd,
-                                           0, spi->queue);
-    if (spi->w_source == NULL) {
-        swifthal_spi_close(spi);
-        return NULL;
-    }
     if (w_notify) {
+        spi->w_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE,
+                                               spi->fd, 0, spi->queue);
+        if (spi->w_source == NULL) {
+            swifthal_spi_close(spi);
+            return NULL;
+        }
         dispatch_source_set_event_handler(spi->w_source, ^{
           w_notify(spi);
         });
         dispatch_resume(spi->w_source);
     }
 
-    spi->r_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, spi->fd,
-                                           0, spi->queue);
-    if (spi->r_source == NULL) {
-        swifthal_spi_close(spi);
-        return NULL;
-    }
     if (r_notify) {
+        spi->r_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ,
+                                               spi->fd, 0, spi->queue);
+        if (spi->r_source == NULL) {
+            swifthal_spi_close(spi);
+            return NULL;
+        }
         dispatch_source_set_event_handler(spi->r_source, ^{
           r_notify(spi);
         });
@@ -261,20 +258,34 @@ int swifthal_spi_dev_number_get(void) {
     return 0;
 }
 
-void swifthal_spi_read_notification_handler_set(
-    void *arg, void (^handler)(dispatch_source_t)) {
+void swifthal_spi_async_read_with_handler(
+    void *_Nonnull arg,
+    size_t length,
+    void (^_Nonnull handler)(swifthal_spi_dispatch_data_t _Nonnull data,
+                             int error)) {
     struct swifthal_spi *spi = arg;
-    dispatch_source_set_event_handler(spi->r_source, ^{
-      handler(spi->r_source);
-    });
-    dispatch_resume(spi->r_source);
+#ifdef __APPLE__
+    dispatch_read(spi->fd, length, spi->queue,
+                  ^(dispatch_data_t data, int error) {
+                    handler((swifthal_spi_dispatch_data_t)data, error);
+                  });
+#else
+    dispatch_read(spi->fd, length, spi->queue, handler);
+#endif
 }
 
-void swifthal_spi_write_notification_handler_set(
-    void *arg, void (^handler)(dispatch_source_t)) {
+void swifthal_spi_async_write_with_handler(
+    void *_Nonnull arg,
+    swifthal_spi_dispatch_data_t _Nonnull data,
+    void (^_Nonnull handler)(swifthal_spi_dispatch_data_t _Nullable data,
+                             int error)) {
     struct swifthal_spi *spi = arg;
-    dispatch_source_set_event_handler(spi->w_source, ^{
-      handler(spi->w_source);
-    });
-    dispatch_resume(spi->w_source);
+#ifdef __APPLE__
+    dispatch_write(spi->fd, (dispatch_data_t)data, spi->queue,
+                   ^(dispatch_data_t data, int error) {
+                     handler((swifthal_spi_dispatch_data_t)data, error);
+                   });
+#else
+    dispatch_write(spi->fd, data, spi->queue, handler);
+#endif
 }

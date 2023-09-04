@@ -20,47 +20,57 @@ import Foundation // workaround for apple/swift#66664
 import LinuxHalSwiftIO
 import SwiftIO
 
-#if os(Linux)
-private extension dispatch_source_t {
-    var data: UInt {
-        dispatch_source_get_data(self)
-    }
-}
-#endif
-
 public actor AsyncSPI {
     private let spi: SPI
+    private let wordLength: Int
     private var readChannel = AsyncThrowingChannel<[UInt8], Error>()
     private var writeChannel = AsyncChannel<[UInt8]>()
+    private var readChannelTask: Task<(), Error>?
 
-#if os(Linux)
-    typealias DispatchSource = dispatch_source_t
-#endif
-
-    public init(with spi: SPI) {
+    public init(with spi: SPI) async {
         self.spi = spi
+        wordLength = spi.wordLength == .thirtyTwoBits ? 4 : 1
 
-        swifthal_spi_write_notification_handler_set(spi.obj) { source in
-            Task { try await self.writeReady(source) }
-        }
-
-        swifthal_spi_read_notification_handler_set(spi.obj) { source in
-            Task { await self.readReady(source) }
-        }
-    }
-
-    private func writeReady(_ source: DispatchSource) async throws {
-        for await data in writeChannel {
-            let result = valueOrErrno(
-                data.withUnsafeBytes { bytes in
-                    swifthal_spi_write(self.spi.obj, bytes.baseAddress, CInt(bytes.count))
+        readChannelTask = Task {
+            repeat {
+                swifthal_spi_async_read_with_handler(self.spi.obj, wordLength) { data, error in
+                    Task {
+                        guard error == 0 else {
+                            self.readChannel.fail(Errno(error))
+                            self.readChannelTask?.cancel()
+                            return
+                        }
+                        #if canImport(Darwin)
+                        let dd = unsafeBitCast(data, to: DispatchData.self)
+                        var result = [UInt8](repeating: 0, count: dd.count)
+                        result.withUnsafeMutableBytes {
+                            _ = dd.copyBytes(to: $0)
+                        }
+                        let immutableResult = result
+                        #else
+                        #endif
+                        Task {
+                            await self.readChannel.send(immutableResult)
+                        }
+                    }
                 }
-            )
-            if case let .failure(error) = result {
-                throw error
-            }
-            if source.data == 0 {
-                break
+            } while !(self.readChannelTask?.isCancelled ?? true)
+        }
+
+        Task {
+            for await data in writeChannel {
+                data.withUnsafeBytes { bytes in
+                    #if canImport(Darwin)
+                    let dd = unsafeBitCast(DispatchData(bytes: bytes), to: UnsafeRawPointer.self)
+                    #else
+                    let dd = dispatch_data_t(bytes)
+                    #endif
+                    swifthal_spi_async_write_with_handler(self.spi.obj, dd) { _, error in
+                        guard error == 0 else {
+                            return
+                        }
+                    }
+                }
             }
         }
     }
@@ -78,24 +88,6 @@ public actor AsyncSPI {
         }
 
         await writeChannel.send(Array(data[0..<writeLength]))
-    }
-
-    private func readReady(_ source: DispatchSource) async {
-        repeat {
-            let wordLength: Int32 = spi.wordLength == .thirtyTwoBits ? 4 : 1
-            var buffer = [UInt8](repeating: 0, count: Int(wordLength))
-            let result = valueOrErrno(
-                buffer.withUnsafeMutableBytes { bytes in
-                    swifthal_spi_read(self.spi.obj, bytes.baseAddress, wordLength)
-                }
-            )
-
-            if case let .failure(error) = result {
-                readChannel.fail(error)
-            } else {
-                await readChannel.send(buffer)
-            }
-        } while source.data != 0
     }
 
     public func read(into buffer: inout [UInt8], count: Int? = nil) async throws -> Int {
