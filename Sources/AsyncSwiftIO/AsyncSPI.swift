@@ -20,10 +20,22 @@ import Foundation // workaround for apple/swift#66664
 import LinuxHalSwiftIO
 import SwiftIO
 
+#if os(Linux)
+private extension dispatch_source_t {
+    var data: UInt {
+        dispatch_source_get_data(self)
+    }
+}
+#endif
+
 public actor AsyncSPI {
     private let spi: SPI
     private var readChannel = AsyncThrowingChannel<[UInt8], Error>()
     private var writeChannel = AsyncChannel<[UInt8]>()
+
+#if os(Linux)
+    typealias DispatchSource = dispatch_source_t
+#endif
 
     public init(with spi: SPI) {
         self.spi = spi
