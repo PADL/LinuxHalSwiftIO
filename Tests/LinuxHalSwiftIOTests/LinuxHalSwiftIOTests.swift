@@ -18,9 +18,9 @@ final class LinuxHalSwiftIOTests: XCTestCase {
         let spi = SPI(Id(0), loopback: true)
 
         let writeBuffer: [UInt8] = [0xca, 0xfe, 0xba, 0xbe]
-        var readBuffer = [UInt8](repeating: 0, count: 4)
+        var readBuffer = [UInt8](repeating: 0xff, count: 4)
 
-        let result = spi.transceive(writeBuffer, into: &readBuffer)
+        _ = spi.transceive(writeBuffer, into: &readBuffer)
         XCTAssertEqual(writeBuffer, readBuffer)
     }
 }
