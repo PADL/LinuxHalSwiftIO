@@ -25,16 +25,22 @@
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
 #include <dispatch/dispatch.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 
 #include "swift_hal.h"
 
+#ifndef SWIFT_SPI_TRANSFER_8_BITS
 #define SWIFT_SPI_TRANSFER_8_BITS (1 << 5) // undocumented
-
-#define SWIFT_SPI_TRANSFER_32_BITS (1 << 31) // PADL extension
+#endif
+#ifndef SWIFT_SPI_TRANSFER_32_BITS
+#define SWIFT_SPI_TRANSFER_32_BITS (1 << 6) // undocumented
+#endif
 
 struct swifthal_spi {
     int fd;
     dispatch_queue_t queue;
+
     dispatch_source_t r_source;
     dispatch_source_t w_source;
 };
@@ -52,7 +58,7 @@ void *swifthal_spi_open(int id,
         return NULL;
 
     // FIXME: how to integrate with CS from calling library
-    snprintf(device, sizeof(device), "/dev/spidev0.%d", id);
+    snprintf(device, sizeof(device), "/dev/spidev%d.0", id);
 
     spi->fd = open(device, O_RDWR);
     if (spi->fd < 0) {
@@ -246,20 +252,20 @@ int swifthal_spi_dev_number_get(void) {
     return 0;
 }
 
-int swifthal_spi_read_source_get(void *arg, dispatch_source_t *source) {
+void swifthal_spi_read_notification_handler_set(void *arg,
+                                                void (^handler)(dispatch_source_t)) {
     struct swifthal_spi *spi = arg;
-    if (spi) {
-        *source = spi->r_source;
-        return 0;
-    }
-    return -EINVAL;
+    dispatch_source_set_event_handler(spi->r_source, ^{
+        handler(spi->r_source);
+    });
+    dispatch_resume(spi->r_source);
 }
 
-int swifthal_spi_write_source_get(void *arg, dispatch_source_t *source) {
+void swifthal_spi_write_notification_handler_set(void *arg,
+                                                 void (^handler)(dispatch_source_t)) {
     struct swifthal_spi *spi = arg;
-    if (spi) {
-        *source = spi->w_source;
-        return 0;
-    }
-    return -EINVAL;
+    dispatch_source_set_event_handler(spi->w_source, ^{
+        handler(spi->w_source);
+    });
+    dispatch_resume(spi->w_source);
 }

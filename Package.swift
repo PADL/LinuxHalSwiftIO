@@ -10,10 +10,14 @@ let package = Package(
         .library(
             name: "LinuxHalSwiftIO",
             targets: ["LinuxHalSwiftIO"]),
+        .library(
+            name: "AsyncSwiftIO",
+            targets: ["AsyncSwiftIO"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/madmachineio/SwiftIO.git", branch: "main"),
+        .package(url: "https://github.com/PADL/SwiftIO.git", branch: "linux-hal"),
+        .package(url: "https://github.com/apple/swift-async-algorithms", from: "0.1.0"),
     ],
     targets: [
         .target(
@@ -24,6 +28,18 @@ let package = Package(
             cSettings: [
                 .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
             ]
+        ),
+        .target(
+            name: "AsyncSwiftIO",
+            dependencies: [
+                .product(name: "SwiftIO", package: "SwiftIO"),
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+                "LinuxHalSwiftIO"
+            ],
+            cSettings: [
+                .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
+            ]
         )
+
     ]
 )
