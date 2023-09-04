@@ -20,7 +20,9 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <sys/random.h>
+#ifdef __linux__
 #include <sys/sysinfo.h>
+#endif
 
 #include "swift_hal.h"
 
@@ -29,11 +31,15 @@ void swifthal_ms_sleep(int ms) { usleep(ms * 1000); }
 void swifthal_us_wait(unsigned int us) { usleep(us); }
 
 long long swifthal_uptime_get(void) {
+#ifdef __linux__
     struct sysinfo info;
     if (sysinfo(&info) < 0)
         return -errno;
 
     return info.uptime * 1000;
+#else
+    return 0;
+#endif
 }
 
 unsigned int swifthal_hwcycle_get(void) {
