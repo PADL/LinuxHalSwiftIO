@@ -18,6 +18,8 @@
 
 #include <dispatch/dispatch.h>
 
+// Note: whilst this builds on Darwin, this is only tested on Linux
+
 #ifdef __APPLE__
 // because dispatch_data_t is unavailable in Swift
 typedef const void *swifthal_spi_dispatch_data_t;
@@ -26,13 +28,18 @@ typedef dispatch_data_t swifthal_spi_dispatch_data_t;
 #endif
 
 void swifthal_spi_async_read_with_handler(
-    void *_Nonnull arg,
+    void *_Nonnull spi,
     size_t length,
     void (^_Nonnull handler)(swifthal_spi_dispatch_data_t _Nonnull data,
                              int error));
 
 void swifthal_spi_async_write_with_handler(
-    void *_Nonnull arg,
+    void *_Nonnull spi,
     swifthal_spi_dispatch_data_t _Nonnull data,
     void (^_Nonnull handler)(swifthal_spi_dispatch_data_t _Nullable data,
                              int error));
+
+#ifndef __APPLE__
+_Nonnull dispatch_queue_t
+swifthal_spi_async_get_queue(void *_Nonnull spi);
+#endif

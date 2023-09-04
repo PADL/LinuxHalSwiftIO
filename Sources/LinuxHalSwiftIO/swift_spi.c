@@ -289,3 +289,11 @@ void swifthal_spi_async_write_with_handler(
     dispatch_write(spi->fd, data, spi->queue, handler);
 #endif
 }
+
+#ifndef __APPLE__
+dispatch_queue_t
+swifthal_spi_async_get_queue(void *arg) {
+    struct swifthal_spi *spi = arg;
+    return spi->queue;
+}
+#endif
