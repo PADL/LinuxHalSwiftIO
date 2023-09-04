@@ -15,6 +15,12 @@ struct Id: IdName {
 
 final class LinuxHalSwiftIOTests: XCTestCase {
     func testSpiLoopbackSync() throws {
-        let spi = SPI(Id(0))
+        let spi = SPI(Id(0), loopback: true)
+
+        let writeBuffer: [UInt8] = [0xca, 0xfe, 0xba, 0xbe]
+        var readBuffer = [UInt8](repeating: 0, count: 4)
+
+        let result = spi.transceive(writeBuffer, into: &readBuffer)
+        XCTAssertEqual(writeBuffer, readBuffer)
     }
 }

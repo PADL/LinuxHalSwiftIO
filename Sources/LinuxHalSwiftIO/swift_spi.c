@@ -65,6 +65,11 @@ void *swifthal_spi_open(int id,
         return NULL;
     }
 
+    if (swifthal_spi_config(spi, speed, operation) < 0) {
+        swifthal_spi_close(spi);
+        return NULL;
+    }
+
     spi->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
     if (w_notify) {
