@@ -14,11 +14,11 @@
 // limitations under the License.
 //
 
-import SwiftIO
-import CSwiftIO
-import LinuxHalSwiftIO
 import AsyncAlgorithms
+import CSwiftIO
 import Foundation // workaround for apple/swift#66664
+import LinuxHalSwiftIO
+import SwiftIO
 
 public actor AsyncSPI {
     private let spi: SPI
@@ -38,13 +38,13 @@ public actor AsyncSPI {
     }
 
     private func writeReady(_ source: dispatch_source_t) async throws {
-        for await data in self.writeChannel {
+        for await data in writeChannel {
             let result = valueOrErrno(
                 data.withUnsafeBytes { bytes in
                     swifthal_spi_write(self.spi.obj, bytes.baseAddress, CInt(bytes.count))
                 }
             )
-            if case .failure(let error) = result {
+            if case let .failure(error) = result {
                 throw error
             }
             if dispatch_source_get_data(source) == 0 {
@@ -57,7 +57,7 @@ public actor AsyncSPI {
         var writeLength = 0
         let result = validateLength(data, count: count, length: &writeLength)
 
-        if case .failure(let error) = result {
+        if case let .failure(error) = result {
             throw error
         }
 
@@ -70,7 +70,7 @@ public actor AsyncSPI {
 
     private func readReady(_ source: dispatch_source_t) async {
         repeat {
-            let wordLength: Int32 = self.spi.wordLength == .thirtyTwoBits ? 4 : 1
+            let wordLength: Int32 = spi.wordLength == .thirtyTwoBits ? 4 : 1
             var buffer = [UInt8](repeating: 0, count: Int(wordLength))
             let result = valueOrErrno(
                 buffer.withUnsafeMutableBytes { bytes in
@@ -78,7 +78,7 @@ public actor AsyncSPI {
                 }
             )
 
-            if case .failure(let error) = result {
+            if case let .failure(error) = result {
                 readChannel.fail(error)
             } else {
                 await readChannel.send(buffer)
@@ -90,7 +90,7 @@ public actor AsyncSPI {
         var readLength = 0
         let result = validateLength(buffer, count: count, length: &readLength)
 
-        if case .failure(let error) = result {
+        if case let .failure(error) = result {
             throw error
         }
 
@@ -100,7 +100,7 @@ public actor AsyncSPI {
 
         var bytesRead = 0
 
-        for try await data in self.readChannel {
+        for try await data in readChannel {
             memcpy(&buffer[bytesRead], data, data.count)
             bytesRead += data.count
 

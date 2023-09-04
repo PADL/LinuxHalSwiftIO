@@ -1,5 +1,5 @@
-import XCTest
 @testable import LinuxHalSwiftIO
+import XCTest
 
 final class LinuxHalSwiftIOTests: XCTestCase {
     func testExample() throws {
