@@ -48,5 +48,13 @@ let package = Package(
                 .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
             ]
         ),
+        .testTarget(
+            name: "LinuxHalSwiftIOTests",
+            dependencies: [
+                .target(name: "LinuxHalSwiftIO"),
+                .target(name: "AsyncSwiftIO"),
+            ]
+        ),
+
     ]
 )
