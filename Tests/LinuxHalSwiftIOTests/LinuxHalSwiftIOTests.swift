@@ -23,4 +23,17 @@ final class LinuxHalSwiftIOTests: XCTestCase {
         _ = spi.transceive(writeBuffer, into: &readBuffer)
         XCTAssertEqual(writeBuffer, readBuffer)
     }
+
+    func testSpiLoopbackAsync() async throws {
+        let spi = await AsyncSPI(with: SPI(Id(0), loopback: true))
+        let writeBuffer: [UInt8] = [0xca, 0xfe, 0xba, 0xbe]
+        var readBuffer = [UInt8](repeating: 0xff, count: 4)
+        let bufferExpectation = XCTestExpectation(description: "Read/write buffer matching")
+
+        try await spi.write(writeBuffer)
+        _ = try await spi.read(into: &readBuffer)
+        XCTAssertEqual(writeBuffer, readBuffer)
+        bufferExpectation.fulfill()
+        wait(for: [bufferExpectation], timeout: 1)
+    }
 }
