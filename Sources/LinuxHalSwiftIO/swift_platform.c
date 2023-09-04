@@ -50,16 +50,22 @@ unsigned int swifthal_hwcycle_get(void) {
 #elif defined(__ARM_ARCH_ISA_A64)
     uint64_t val;
     asm volatile("mrs %0, cntvct_el0" : "=r"(val));
-    return val;
+    return (unsigned int)val;
 #else
 #error implement swifthal_hwcycle_get() for your platform
 #endif
 }
 
 unsigned int swifthal_hwcycle_to_ns(unsigned int cycles) {
-    return sysconf(_SC_CLK_TCK);
+    return (unsigned int)sysconf(_SC_CLK_TCK);
 }
 
 void swiftHal_randomGet(unsigned char *buf, int length) {
+#if defined(__linux__)
     getrandom(buf, length, 0);
+#elif defined(__APPLE__)
+    arc4random_buf(buf, length);
+#else
+#error define swiftHal_randomGet for your platform
+#endif
 }

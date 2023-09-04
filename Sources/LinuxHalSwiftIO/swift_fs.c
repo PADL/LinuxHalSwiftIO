@@ -24,7 +24,11 @@
 #include <inttypes.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/vfs.h>
+#elif defined(__APPLE__)
+#include <sys/mount.h>
+#endif
 
 #include "swift_hal.h"
 
@@ -85,7 +89,7 @@ int swifthal_fs_write(void *fp, const void *buf, unsigned int size) {
     if (nbytes < 0)
         return -errno;
 
-    return nbytes;
+    return (int)nbytes;
 }
 
 int swifthal_fs_read(void *fp, void *buf, unsigned int size) {
@@ -95,7 +99,7 @@ int swifthal_fs_read(void *fp, void *buf, unsigned int size) {
     if (nbytes < 0)
         return -errno;
 
-    return nbytes;
+    return (int)nbytes;
 }
 
 int swifthal_fs_seek(void *fp, int offset, int whence) {
@@ -119,7 +123,7 @@ int swifthal_fs_tell(void *fp) {
     long offset = ftell(fp);
     if (offset == -1)
         return -errno;
-    return offset;
+    return (int)offset;
 }
 
 int swifthal_fs_truncate(void *fp, unsigned int length) {
@@ -167,7 +171,7 @@ next:
         memcpy(entry->name, dentry->d_name, 256);
         if (fstatat(dirfd(dp), dentry->d_name, &statbuf, 0) < 0)
             return -errno;
-        entry->size = statbuf.st_size;
+        entry->size = (unsigned int)statbuf.st_size;
     } else
         goto next;
 
@@ -204,8 +208,11 @@ int swifthal_fs_statfs(const char *path, swift_fs_statvfs_t *stat) {
     if (statfs(path, &statfsbuf) < 0)
         return -errno;
 
+    memset(stat, 0, sizeof(*stat));
     stat->f_bsize = statfsbuf.f_bsize;
+#ifdef __linux__
     stat->f_frsize = statfsbuf.f_frsize;
+#endif
     stat->f_blocks = statfsbuf.f_blocks;
     stat->f_bfree = statfsbuf.f_bfree;
 

@@ -37,7 +37,7 @@ public actor AsyncSPI {
         }
     }
 
-    private func writeReady(_ source: dispatch_source_t) async throws {
+    private func writeReady(_ source: DispatchSource) async throws {
         for await data in writeChannel {
             let result = valueOrErrno(
                 data.withUnsafeBytes { bytes in
@@ -47,7 +47,7 @@ public actor AsyncSPI {
             if case let .failure(error) = result {
                 throw error
             }
-            if dispatch_source_get_data(source) == 0 {
+            if source.data == 0 {
                 break
             }
         }
@@ -68,7 +68,7 @@ public actor AsyncSPI {
         await writeChannel.send(Array(data[0..<writeLength]))
     }
 
-    private func readReady(_ source: dispatch_source_t) async {
+    private func readReady(_ source: DispatchSource) async {
         repeat {
             let wordLength: Int32 = spi.wordLength == .thirtyTwoBits ? 4 : 1
             var buffer = [UInt8](repeating: 0, count: Int(wordLength))
@@ -83,7 +83,7 @@ public actor AsyncSPI {
             } else {
                 await readChannel.send(buffer)
             }
-        } while dispatch_source_get_data(source) != 0
+        } while source.data != 0
     }
 
     public func read(into buffer: inout [UInt8], count: Int? = nil) async throws -> Int {

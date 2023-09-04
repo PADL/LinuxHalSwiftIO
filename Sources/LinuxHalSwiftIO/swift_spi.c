@@ -23,7 +23,9 @@
 #include <limits.h>
 #include <inttypes.h>
 #include <sys/ioctl.h>
+#ifdef __linux__
 #include <linux/spi/spidev.h>
+#endif
 #include <dispatch/dispatch.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -68,8 +70,8 @@ void *swifthal_spi_open(int id,
 
     spi->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
-    spi->w_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE,
-                                           spi->fd, 0, spi->queue);
+    spi->w_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE, spi->fd,
+                                           0, spi->queue);
     if (spi->w_source == NULL) {
         swifthal_spi_close(spi);
         return NULL;
@@ -81,8 +83,8 @@ void *swifthal_spi_open(int id,
         dispatch_resume(spi->w_source);
     }
 
-    spi->r_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ,
-                                           spi->fd, 0, spi->queue);
+    spi->r_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, spi->fd,
+                                           0, spi->queue);
     if (spi->r_source == NULL) {
         swifthal_spi_close(spi);
         return NULL;
@@ -119,6 +121,7 @@ int swifthal_spi_close(void *arg) {
 }
 
 int swifthal_spi_config(void *arg, int speed, unsigned short operation) {
+#ifdef __linux__
     struct swifthal_spi *spi = arg;
     uint8_t mode = 0;
     uint8_t lsb;
@@ -164,7 +167,9 @@ int swifthal_spi_config(void *arg, int speed, unsigned short operation) {
     if (ioctl(spi->fd, SPI_IOC_RD_MAX_SPEED_HZ, &freq) < 0 ||
         ioctl(spi->fd, SPI_IOC_WR_MAX_SPEED_HZ, &freq) < 0)
         return -errno;
-
+#else
+    return -ENOSYS;
+#endif
     return 0;
 }
 
@@ -176,7 +181,7 @@ int swifthal_spi_write(void *arg, const unsigned char *buf, int length) {
         if (nbytes < 0)
             return -errno;
         else
-            return nbytes;
+            return (int)nbytes;
     }
 
     return -EINVAL;
@@ -190,7 +195,7 @@ int swifthal_spi_read(void *arg, unsigned char *buf, int length) {
         if (nbytes < 0)
             return -errno;
         else
-            return nbytes;
+            return (int)nbytes;
     }
 
     return -EINVAL;
@@ -201,6 +206,7 @@ int swifthal_spi_transceive(void *arg,
                             int w_length,
                             unsigned char *r_buf,
                             int r_length) {
+#ifdef __linux__
     struct swifthal_spi *spi = arg;
 
     if (spi) {
@@ -219,6 +225,9 @@ int swifthal_spi_transceive(void *arg,
     }
 
     return -EINVAL;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_spi_async_write(void *arg, const unsigned char *buf, int length) {
@@ -252,20 +261,20 @@ int swifthal_spi_dev_number_get(void) {
     return 0;
 }
 
-void swifthal_spi_read_notification_handler_set(void *arg,
-                                                void (^handler)(dispatch_source_t)) {
+void swifthal_spi_read_notification_handler_set(
+    void *arg, void (^handler)(dispatch_source_t)) {
     struct swifthal_spi *spi = arg;
     dispatch_source_set_event_handler(spi->r_source, ^{
-        handler(spi->r_source);
+      handler(spi->r_source);
     });
     dispatch_resume(spi->r_source);
 }
 
-void swifthal_spi_write_notification_handler_set(void *arg,
-                                                 void (^handler)(dispatch_source_t)) {
+void swifthal_spi_write_notification_handler_set(
+    void *arg, void (^handler)(dispatch_source_t)) {
     struct swifthal_spi *spi = arg;
     dispatch_source_set_event_handler(spi->w_source, ^{
-        handler(spi->w_source);
+      handler(spi->w_source);
     });
     dispatch_resume(spi->w_source);
 }

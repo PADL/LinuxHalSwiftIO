@@ -25,7 +25,9 @@
 #include <sched.h>
 #include <pthread.h>
 #include <semaphore.h>
+#ifdef __linux__
 #include <mqueue.h>
+#endif
 #include <stdatomic.h>
 
 #include "swift_hal.h"
@@ -73,6 +75,7 @@ void *swifthal_os_task_create(const char *name,
     return (void *)((intptr_t)thread);
 }
 
+#ifdef __linux__
 struct swifthal_os_task__mqueue {
     mqd_t mq;
     int mq_size;
@@ -80,8 +83,10 @@ struct swifthal_os_task__mqueue {
 };
 
 static _Atomic(uintptr_t) mq_id = 0;
+#endif
 
 void *swifthal_os_mq_create(int mq_size, int mq_num) {
+#ifdef __linux__
     struct swifthal_os_task__mqueue *mq = calloc(1, sizeof(*mq));
     struct mq_attr attr;
 
@@ -104,9 +109,13 @@ void *swifthal_os_mq_create(int mq_size, int mq_num) {
     mq->mq_size = mq_size;
 
     return mq;
+#else
+    return NULL;
+#endif
 }
 
 int swifthal_os_mq_destory(void *mp) {
+#ifdef __linux__
     struct swifthal_os_task__mqueue *mq = mp;
 
     if (mq) {
@@ -117,9 +126,13 @@ int swifthal_os_mq_destory(void *mp) {
     }
 
     return -EINVAL;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_os_mq_send(void *mp, void *data, int timeout) {
+#ifdef __linux__
     struct swifthal_os_task__mqueue *mq = mp;
 
     if (timeout == -1) {
@@ -133,9 +146,13 @@ int swifthal_os_mq_send(void *mp, void *data, int timeout) {
     }
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_os_mq_recv(void *mp, void *data, int timeout) {
+#ifdef __linux__
     struct swifthal_os_task__mqueue *mq = mp;
     unsigned int prio;
 
@@ -150,9 +167,13 @@ int swifthal_os_mq_recv(void *mp, void *data, int timeout) {
     }
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_os_mq_purge(void *mp) {
+#ifdef __linux__
     struct swifthal_os_task__mqueue *mq = mp;
     struct mq_attr attr;
     unsigned int prio;
@@ -170,6 +191,9 @@ int swifthal_os_mq_purge(void *mp) {
     }
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 void *swifthal_os_mutex_create(void) {
@@ -200,10 +224,14 @@ int swifthal_os_mutex_lock(void *mutex, int timeout) {
         if (pthread_mutex_lock(mutex) != 0)
             return -errno;
     } else {
+#ifdef __linux__
         struct timespec ts = {.tv_sec = timeout, .tv_nsec = 0};
 
         if (pthread_mutex_timedlock(mutex, &ts) != 0)
             return -errno;
+#else
+        return -ENOSYS;
+#endif
     }
 
     return 0;
@@ -261,10 +289,13 @@ int swifthal_os_sem_take(void *arg, int timeout) {
         if (sem_wait(&sem->sem) != 0)
             return -errno;
     } else {
+#ifdef __linux__
         struct timespec ts = {.tv_sec = timeout, .tv_nsec = 0};
-
         if (sem_timedwait(&sem->sem, &ts) != 0)
             return -errno;
+#else
+        return -ENOSYS;
+#endif
     }
 
     return 0;
