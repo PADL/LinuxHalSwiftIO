@@ -34,13 +34,13 @@
 
 void swifthal_os_task_yield(void) { sched_yield(); }
 
-struct swifthal_os_task__param {
+struct swifthal_os_task {
     swifthal_task fn;
     void *p1, *p2, *p3;
 };
 
 static void *swifthal_os_task__start(void *arg) {
-    struct swifthal_os_task__param *param = arg;
+    struct swifthal_os_task *param = arg;
     param->fn(param->p1, param->p2, param->p3);
     return NULL;
 }
@@ -54,22 +54,29 @@ void *swifthal_os_task_create(const char *name,
                               int stack_size) {
     pthread_attr_t attr;
     struct sched_param param;
-    struct swifthal_os_task__param taskParam;
+    struct swifthal_os_task task;
     pthread_t thread;
+    int err;
 
-    taskParam.fn = fn;
-    taskParam.p1 = p1;
-    taskParam.p2 = p2;
-    taskParam.p3 = p3;
+    task.fn = fn;
+    task.p1 = p1;
+    task.p2 = p2;
+    task.p3 = p3;
 
-    pthread_attr_init(&attr);
-    pthread_attr_getschedparam(&attr, &param);
-    param.sched_priority = prio;
-    pthread_attr_setschedparam(&attr, &param);
-    pthread_attr_setstacksize(&attr, stack_size);
+    err = pthread_attr_init(&attr);
+    if (err == 0)
+        err = pthread_attr_getschedparam(&attr, &param);
+    if (err == 0) {
+        param.sched_priority = prio;
+        err = pthread_attr_setschedparam(&attr, &param);
+    }
+    if (err == 0)
+        err = pthread_attr_setstacksize(&attr, stack_size);
+    err = pthread_create(&thread, &attr, swifthal_os_task__start, &task);
 
-    if (pthread_create(&thread, &attr, swifthal_os_task__start, &taskParam) !=
-        0)
+    pthread_attr_destroy(&attr);
+
+    if (err)
         return NULL;
 
     return (void *)((intptr_t)thread);
@@ -224,9 +231,12 @@ void *swifthal_os_mutex_create(void) {
 }
 
 int swifthal_os_mutex_destroy(void *mutex) {
+    int err;
+
     if (mutex) {
-        if (pthread_mutex_destroy(mutex) != 0)
-            return -errno;
+        err = pthread_mutex_destroy(mutex);
+        if (err)
+            return -err;
         free(mutex);
         return 0;
     }
@@ -235,17 +245,21 @@ int swifthal_os_mutex_destroy(void *mutex) {
 }
 
 int swifthal_os_mutex_lock(void *mutex, int timeout) {
+    int err;
+
     if (timeout == -1) {
-        if (pthread_mutex_lock(mutex) != 0)
-            return -errno;
+        err = pthread_mutex_lock(mutex);
+        if (err)
+            return -err;
     } else {
 #ifdef __linux__
         struct timespec ts;
 
         swifthal_timeout_to_timespec(timeout, &ts);
 
-        if (pthread_mutex_timedlock(mutex, &ts) != 0)
-            return -errno;
+        err = thread_mutex_timedlock(mutex, &ts);
+        if (err)
+            return -err;
 #else
         return -ENOSYS;
 #endif
@@ -255,8 +269,11 @@ int swifthal_os_mutex_lock(void *mutex, int timeout) {
 }
 
 int swifthal_os_mutex_unlock(void *mutex) {
-    if (pthread_mutex_unlock(mutex) != 0)
-        return -errno;
+    int err;
+
+    err = pthread_mutex_unlock(mutex);
+    if (err)
+        return -err;
 
     return 0;
 }
