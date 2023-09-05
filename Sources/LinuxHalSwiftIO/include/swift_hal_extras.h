@@ -18,6 +18,10 @@
 
 #include <dispatch/dispatch.h>
 
+///
+/// SPI
+///
+
 #ifndef SWIFT_SPI_TRANSFER_8_BITS
 #define SWIFT_SPI_TRANSFER_8_BITS (1 << 5) // undocumented
 #endif
@@ -26,16 +30,22 @@
 #endif
 
 int swifthal_spi_async_read_with_handler(
-    void *_Nonnull arg,
+    void *_Nonnull spi,
     size_t length,
     bool (^_Nonnull handler)(
         bool done, const uint8_t *_Nullable data, size_t count, int error));
 
 int swifthal_spi_async_write_with_handler(
-    void *_Nonnull arg,
+    void *_Nonnull spi,
     const uint8_t *_Nonnull buffer,
     size_t length,
     bool (^_Nonnull handler)(
         bool done, const uint8_t *_Nullable data, size_t count, int error));
 
-int swifthal_spi_async_enable(void * _Nonnull arg);
+int swifthal_spi_async_enable(void * _Nonnull spi);
+
+///
+/// UART
+///
+
+int swifthal_uart_async_enable(void * _Nonnull uart);

@@ -31,8 +31,8 @@
 #include "swift_hal.h"
 
 struct swifthal_spi {
-    int fd;
     unsigned short operation;
+    int fd;
     dispatch_queue_t queue;
     void (*w_notify)(void *);
     void (*r_notify)(void *);
@@ -46,7 +46,7 @@ static int swifthal_spi__enable_nbio(struct swifthal_spi *spi) {
     if ((flags & O_NONBLOCK) == 0) {
         if (fcntl(spi->fd, F_SETFL, flags | O_NONBLOCK) < 0) {
             fprintf(stderr,
-                    "LinuxHalSwiftIO: failed to set non-blocked I/O on SPI fd "
+                    "LinuxHalSwiftIO: failed to enable non-blocking I/O on SPI fd "
                     "%d: %m\n",
                     spi->fd);
             return -errno;
@@ -63,7 +63,7 @@ static int swifthal_spi__io_create(struct swifthal_spi *spi) {
         return err;
 
     spi->channel = dispatch_io_create(DISPATCH_IO_STREAM, spi->fd, spi->queue,
-                                      ^(int error){
+                                      ^(int error) {
                                       });
     if (spi->channel == NULL)
         return -ENOMEM;
