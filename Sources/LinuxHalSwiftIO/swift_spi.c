@@ -41,7 +41,7 @@ struct swifthal_spi {
 
 // FIXME is async I/O actually supported by the Linux SPI subsystems? appears
 // not
-static int enableNonBlockingIO(struct swifthal_spi *spi) {
+static int swifthal_spi__enable_nbio(struct swifthal_spi *spi) {
     int flags = fcntl(spi->fd, F_GETFL, 0);
     if ((flags & O_NONBLOCK) == 0) {
         if (fcntl(spi->fd, F_SETFL, flags | O_NONBLOCK) < 0) {
@@ -55,10 +55,10 @@ static int enableNonBlockingIO(struct swifthal_spi *spi) {
     return 0;
 }
 
-static int createIOStream(struct swifthal_spi *spi) {
+static int swifthal_spi__io_create(struct swifthal_spi *spi) {
     int err;
 
-    err = enableNonBlockingIO(spi);
+    err = swifthal_spi__enable_nbio(spi);
     if (err < 0)
         return err;
 
@@ -96,7 +96,7 @@ void *swifthal_spi_open(int id,
     spi->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
     if (w_notify || r_notify) {
-        err = createIOStream(spi);
+        err = swifthal_spi__io_create(spi);
         if (err) {
             swifthal_spi_close(spi);
             return NULL;
@@ -252,7 +252,7 @@ int swifthal_spi_async_enable(void *arg) {
     if (spi->channel)
         return -EEXIST;
 
-    return createIOStream(arg);
+    return swifthal_spi__io_create(arg);
 }
 
 int swifthal_spi_async_write(void *arg, const unsigned char *buf, int length) {
