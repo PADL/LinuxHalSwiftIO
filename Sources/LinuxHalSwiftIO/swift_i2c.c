@@ -149,4 +149,5 @@ int swifthal_i2c_write_read(void *arg,
 #endif
 }
 
+// FIXME: implement this by /sys/class/i2c-dev
 int swifthal_i2c_dev_number_get(void) { return 0; }

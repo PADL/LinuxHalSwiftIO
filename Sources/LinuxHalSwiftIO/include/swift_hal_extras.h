@@ -18,28 +18,22 @@
 
 #include <dispatch/dispatch.h>
 
-// Note: whilst this builds on Darwin, this is only tested on Linux
-
-#ifdef __APPLE__
-// because dispatch_data_t is unavailable in Swift
-typedef const void *swifthal_spi_dispatch_data_t;
-#else
-typedef dispatch_data_t swifthal_spi_dispatch_data_t;
+#ifndef SWIFT_SPI_TRANSFER_8_BITS
+#define SWIFT_SPI_TRANSFER_8_BITS (1 << 5) // undocumented
+#endif
+#ifndef SWIFT_SPI_TRANSFER_32_BITS
+#define SWIFT_SPI_TRANSFER_32_BITS (1 << 6) // undocumented
 #endif
 
-void swifthal_spi_async_read_with_handler(
-    void *_Nonnull spi,
+int swifthal_spi_async_read_with_handler(
+    void *_Nonnull arg,
     size_t length,
-    void (^_Nonnull handler)(swifthal_spi_dispatch_data_t _Nonnull data,
-                             int error));
+    bool (^_Nonnull handler)(
+        bool done, const uint8_t *_Nonnull data, size_t count, int error));
 
-void swifthal_spi_async_write_with_handler(
-    void *_Nonnull spi,
-    swifthal_spi_dispatch_data_t _Nonnull data,
-    void (^_Nonnull handler)(swifthal_spi_dispatch_data_t _Nullable data,
-                             int error));
-
-#ifndef __APPLE__
-_Nonnull dispatch_queue_t
-swifthal_spi_async_get_queue(void *_Nonnull spi);
-#endif
+int swifthal_spi_async_write_with_handler(
+    void *_Nonnull arg,
+    const uint8_t *_Nonnull buffer,
+    size_t length,
+    bool (^_Nonnull handler)(
+        bool done, const uint8_t *_Nonnull data, size_t count, int error));

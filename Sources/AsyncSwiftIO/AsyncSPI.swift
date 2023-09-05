@@ -30,8 +30,8 @@ public actor AsyncSPI {
     public init(with spi: SPI) async {
         self.spi = spi
         wordLength = spi.wordLength == .thirtyTwoBits ? 4 : 1
-        readChannelTask = Task { await _readChannel() }
-        Task { await _writeChannel() }
+        readChannelTask = Task { await readChannelRun() }
+        Task { try await writeChannelRun() }
     }
 
     deinit {
@@ -39,30 +39,24 @@ public actor AsyncSPI {
         readChannel.finish()
     }
 
-    private func _writeChannel() async {
+    private func writeChannelRun() async throws {
         for await data in writeChannel {
-            _asyncWrite(data)
+            try asyncWrite(data)
         }
     }
 
-    private func _asyncWrite(_ data: [UInt8]) {
-        data.withUnsafeBytes { bytes in
-            #if canImport(Darwin)
-            // this should work, but is dependent on the struct layout of DispatchData starting
-            // with __DispatchData (aka dispatch_data_t). Anyway, we don't actually need things
-            // to _work_ on Darwin, only compile
-            let dispatchData = unsafeBitCast(DispatchData(bytes: bytes), to: UnsafeRawPointer.self)
-            #else
-            // allocate a buffer as the data may outlive the lifetime of the channel data
-            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bytes.count)
-            memcpy(&buffer[0], bytes.baseAddress!, bytes.count)
-            let dispatchData = dispatch_data_create(
-                buffer,
-                bytes.count,
-                swifthal_spi_async_get_queue(self.spi.obj)
-            ) { buffer.deallocate() }
-            #endif
-            swifthal_spi_async_write_with_handler(self.spi.obj, dispatchData) { _, _ in }
+    private func asyncWrite(_ data: [UInt8]) throws {
+        let result = data.withUnsafeBytes { bytes in
+            nothingOrErrno(
+                swifthal_spi_async_write_with_handler(
+                    self.spi.obj,
+                    bytes.baseAddress!,
+                    bytes.count) { done, data, count, error in true }
+            )
+        }
+
+        if case .failure(let error) = result {
+            throw error
         }
     }
 
@@ -81,14 +75,14 @@ public actor AsyncSPI {
         await writeChannel.send(Array(data[0..<writeLength]))
     }
 
-    private func _readChannel() async {
+    private func readChannelRun() async {
         repeat {
-            _asyncRead()
+            asyncRead()
         } while !(readChannelTask?.isCancelled ?? true)
     }
 
-    private func _asyncRead() {
-        swifthal_spi_async_read_with_handler(spi.obj, wordLength) { data, error in
+    private func asyncRead() {
+        swifthal_spi_async_read_with_handler(spi.obj, wordLength) { done, data, count, error in
             Task {
                 guard error == 0 else {
                     self.readChannel.fail(Errno(error))
@@ -96,22 +90,10 @@ public actor AsyncSPI {
                     return
                 }
 
-                #if canImport(Darwin)
-                let dispatchData = unsafeBitCast(data, to: DispatchData.self)
-                var bytes = [UInt8](repeating: 0, count: dispatchData.count)
-                _ = bytes.withUnsafeMutableBytes { dispatchData.copyBytes(to: $0) }
+                let bytes = Array(UnsafeBufferPointer<UInt8>(start: data, count: count))
                 await self.readChannel.send(bytes)
-                #else
-                dispatch_data_apply(data) { _, _, buffer, size in
-                    let bytes = Array(UnsafeBufferPointer<UInt8>(
-                        start: buffer.assumingMemoryBound(to: UInt8.self),
-                        count: size
-                    ))
-                    Task { await self.readChannel.send(bytes) }
-                    return true
-                }
-                #endif
             }
+            return true // FIXME: check this
         }
     }
 
