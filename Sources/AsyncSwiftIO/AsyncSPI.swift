@@ -29,6 +29,7 @@ public actor AsyncSPI {
 
     public init(with spi: SPI) async {
         self.spi = spi
+        swifthal_spi_async_enable(spi.obj)
         wordLength = spi.wordLength == .thirtyTwoBits ? 4 : 1
         readChannelTask = Task { await readChannelRun() }
         Task { try await writeChannelRun() }
@@ -51,11 +52,12 @@ public actor AsyncSPI {
                 swifthal_spi_async_write_with_handler(
                     self.spi.obj,
                     bytes.baseAddress!,
-                    bytes.count) { done, data, count, error in true }
+                    bytes.count
+                ) { _, _, _, _ in true }
             )
         }
 
-        if case .failure(let error) = result {
+        if case let .failure(error) = result {
             throw error
         }
     }
@@ -82,7 +84,7 @@ public actor AsyncSPI {
     }
 
     private func asyncRead() {
-        swifthal_spi_async_read_with_handler(spi.obj, wordLength) { done, data, count, error in
+        swifthal_spi_async_read_with_handler(spi.obj, wordLength) { _, data, count, error in
             Task {
                 guard error == 0 else {
                     self.readChannel.fail(Errno(error))

@@ -56,7 +56,9 @@ static int enableNonBlockingIO(struct swifthal_spi *spi) {
 }
 
 static int createIOStream(struct swifthal_spi *spi) {
-    int err = enableNonBlockingIO(spi);
+    int err;
+
+    err = enableNonBlockingIO(spi);
     if (err < 0)
         return err;
 
@@ -76,6 +78,7 @@ void *swifthal_spi_open(int id,
                         void (*r_notify)(void *)) {
     struct swifthal_spi *spi;
     char device[PATH_MAX + 1];
+    int err;
 
     spi = calloc(1, sizeof(*spi));
     if (spi == NULL)
@@ -90,20 +93,22 @@ void *swifthal_spi_open(int id,
         return NULL;
     }
 
-    if (swifthal_spi_config(spi, speed, operation) < 0) {
-        swifthal_spi_close(spi);
-        return NULL;
-    }
-
     spi->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-    spi->w_notify = w_notify;
-    spi->r_notify = r_notify;
 
     if (w_notify || r_notify) {
-        if (createIOStream(spi) < 0) {
+        err = createIOStream(spi);
+        if (err) {
             swifthal_spi_close(spi);
             return NULL;
         }
+
+        spi->w_notify = w_notify;
+        spi->r_notify = r_notify;
+    }
+
+    if (swifthal_spi_config(spi, speed, operation) < 0) {
+        swifthal_spi_close(spi);
+        return NULL;
     }
 
     return spi;
@@ -238,6 +243,18 @@ int swifthal_spi_transceive(void *arg,
 #endif
 }
 
+int swifthal_spi_async_enable(void *arg) {
+    struct swifthal_spi *spi = arg;
+
+    if (spi == NULL)
+        return -EINVAL;
+
+    if (spi->channel)
+        return -EEXIST;
+
+    return createIOStream(arg);
+}
+
 int swifthal_spi_async_write(void *arg, const unsigned char *buf, int length) {
     struct swifthal_spi *spi = arg;
     dispatch_data_t data;
@@ -296,13 +313,6 @@ int swifthal_spi_async_read_with_handler(
     if (spi == NULL)
         return EINVAL;
 
-    // FIXME: reentrancy
-    if (spi->channel == NULL) {
-        int err = createIOStream(spi);
-        if (err < 0)
-            return err;
-    }
-
     dispatch_io_read(
         spi->channel, 0, length, spi->queue,
         ^(bool done, dispatch_data_t data, int error) {
@@ -335,13 +345,6 @@ int swifthal_spi_async_write_with_handler(
 
     if (spi == NULL)
         return EINVAL;
-
-    // FIXME: reentrancy
-    if (spi->channel == NULL) {
-        int err = createIOStream(spi);
-        if (err < 0)
-            return err;
-    }
 
     data = dispatch_data_create(buffer, length, spi->queue,
                                 DISPATCH_DATA_DESTRUCTOR_DEFAULT);

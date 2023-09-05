@@ -37,3 +37,5 @@ int swifthal_spi_async_write_with_handler(
     size_t length,
     bool (^_Nonnull handler)(
         bool done, const uint8_t *_Nullable data, size_t count, int error));
+
+int swifthal_spi_async_enable(void * _Nonnull arg);
