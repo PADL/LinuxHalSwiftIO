@@ -22,11 +22,56 @@
 
 #include "swift_hal.h"
 
-void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) { return NULL; }
+struct swifthal_uart {
+    struct swift_uart_cfg cfg;
+};
 
-int swifthal_uart_close(void *uart) { return -ENOSYS; }
+void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
+    struct swifthal_uart *uart;
+    int err;
 
-int swifthal_uart_baudrate_set(void *uart, int baudrate) { return -ENOSYS; }
+    uart = calloc(1, sizeof(*uart));
+    if (uart == NULL)
+        return NULL;
+
+    uart->cfg.read_buf_len = cfg->read_buf_len;
+
+    err = swifthal_uart_baudrate_set(uart, cfg->baudrate);
+    if (err == 0)
+        err = swifthal_uart_parity_set(uart, cfg->parity);
+    if (err == 0)
+        err = swifthal_uart_stop_bits_set(uart, cfg->stop_bits);
+    if (err == 0)
+        err = swifthal_uart_data_bits_set(uart, cfg->data_bits);
+
+    if (err) {
+        swifthal_uart_close(uart);
+        return NULL;
+    }
+
+    return uart;
+}
+
+int swifthal_uart_close(void *arg) {
+    struct swifthal_uart *uart = arg;
+
+    if (uart == NULL)
+        return -EINVAL;
+
+    free(uart);
+    return 0;
+}
+
+int swifthal_uart_baudrate_set(void *arg, int baudrate) {
+    struct swifthal_uart *uart = arg;
+
+    if (uart == NULL || baudrate == 0)
+        return -EINVAL;
+    
+    uart->cfg.baudrate = baudrate;
+
+    return -ENOSYS;
+}
 
 int swifthal_uart_parity_set(void *uart, swift_uart_parity_t parity) {
     return -ENOSYS;
@@ -36,8 +81,8 @@ int swifthal_uart_stop_bits_set(void *uart, swift_uart_stop_bits_t stop_bits) {
     return -ENOSYS;
 }
 
-int swifthal_swift_uart_data_bits_set(void *uart,
-                                      swift_uart_stop_bits_t data_bits) {
+int swifthal_uart_data_bits_set(void *uart,
+                                swift_uart_data_bits_t data_bits) {
     return -ENOSYS;
 }
 
