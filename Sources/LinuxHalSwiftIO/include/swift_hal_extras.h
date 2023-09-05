@@ -29,11 +29,11 @@ int swifthal_spi_async_read_with_handler(
     void *_Nonnull arg,
     size_t length,
     bool (^_Nonnull handler)(
-        bool done, const uint8_t *_Nonnull data, size_t count, int error));
+        bool done, const uint8_t *_Nullable data, size_t count, int error));
 
 int swifthal_spi_async_write_with_handler(
     void *_Nonnull arg,
     const uint8_t *_Nonnull buffer,
     size_t length,
     bool (^_Nonnull handler)(
-        bool done, const uint8_t *_Nonnull data, size_t count, int error));
+        bool done, const uint8_t *_Nullable data, size_t count, int error));

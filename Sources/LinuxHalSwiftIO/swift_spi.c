@@ -293,12 +293,23 @@ int swifthal_spi_async_read_with_handler(
     bool (^handler)(bool done, const uint8_t *data, size_t count, int error)) {
     struct swifthal_spi *spi = arg;
 
-    if (spi == NULL || spi->channel == NULL)
+    if (spi == NULL)
         return EINVAL;
+
+    // FIXME: reentrancy
+    if (spi->channel == NULL) {
+        int err = createIOStream(spi);
+        if (err < 0)
+            return err;
+    }
 
     dispatch_io_read(
         spi->channel, 0, length, spi->queue,
         ^(bool done, dispatch_data_t data, int error) {
+          if (data == NULL) {
+            handler(done, NULL, 0, error);
+            return;
+          }
           dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
                                       const void *loc, size_t size) {
             bool done2;
@@ -322,8 +333,15 @@ int swifthal_spi_async_write_with_handler(
     struct swifthal_spi *spi = arg;
     dispatch_data_t data;
 
-    if (spi == NULL || spi->channel == NULL)
+    if (spi == NULL)
         return EINVAL;
+
+    // FIXME: reentrancy
+    if (spi->channel == NULL) {
+        int err = createIOStream(spi);
+        if (err < 0)
+            return err;
+    }
 
     data = dispatch_data_create(buffer, length, spi->queue,
                                 DISPATCH_DATA_DESTRUCTOR_DEFAULT);
@@ -333,6 +351,10 @@ int swifthal_spi_async_write_with_handler(
     dispatch_io_write(
         spi->channel, 0, data, spi->queue,
         ^(bool done, dispatch_data_t data, int error) {
+          if (data == NULL) {
+            handler(done, NULL, 0, error);
+            return;
+          }
           dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
                                       const void *loc, size_t size) {
             bool done2;
