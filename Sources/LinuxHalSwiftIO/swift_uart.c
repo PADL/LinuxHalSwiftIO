@@ -121,17 +121,51 @@ int swifthal_uart_close(void *arg) {
 
 int swifthal_uart_baudrate_set(void *arg, int baudrate) {
     struct swifthal_uart *uart = arg;
+    struct termios2 tty;
 
     if (uart == NULL || baudrate == 0)
         return -EINVAL;
-    
-    return -ENOSYS;
+
+    if (ioctl(uart->fd, TCGETS2, &tty) < 0)
+        return -errno;
+
+    tty.c_ispeed = tty.c_ospeed = baudrate;
+
+    if (ioctl(uart->fd, TCSETS2, &tty) < 0)
+        return -errno;
+
+    return 0;
 }
 
 int swifthal_uart_parity_set(void *arg, swift_uart_parity_t parity) {
     struct swifthal_uart *uart = arg;
+    struct termios2 tty;
 
-    return -ENOSYS;
+    if (uart == NULL)
+        return -EINVAL;
+
+    if (ioctl(uart->fd, TCGETS2, &tty) < 0)
+        return -errno;
+
+    switch (parity) {
+    case SWIFT_UART_PARITY_NONE:
+        tty.c_cflag &= ~(PARENB | PARODD);
+        break;
+    case SWIFT_UART_PARITY_ODD:
+        tty.c_cflag |= PARENB | PARODD;
+        break;
+    case SWIFT_UART_PARITY_EVEN:
+        tty.c_cflag |= PARENB;
+        tty.c_cflag &= ~(PARODD);
+        break;
+    default:
+        return -EINVAL;
+    }
+
+    if (ioctl(uart->fd, TCSETS2, &tty) < 0)
+        return -errno;
+
+    return 0;
 }
 
 int swifthal_uart_stop_bits_set(void *arg, swift_uart_stop_bits_t stop_bits) {
@@ -279,7 +313,7 @@ int swifthal_uart_read(void *arg, unsigned char *buf, int length, int timeout) {
         if (nbytes >= 0)
             break;
     }
-    default: 
+    default:
         return -errno;
     }
 
