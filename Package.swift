@@ -48,6 +48,14 @@ let package = Package(
                 .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
             ]
         ),
+        .executableTarget(
+            name: "SPIDumper",
+            dependencies: [
+                "AsyncSwiftIO",
+                "SwiftIO",
+            ],
+            path: "Examples/SPIDumper"
+        ),
         .testTarget(
             name: "LinuxHalSwiftIOTests",
             dependencies: [

@@ -20,17 +20,25 @@ import Foundation // workaround for apple/swift#66664
 import LinuxHalSwiftIO
 import SwiftIO
 
-public actor AsyncSPI {
+public actor AsyncSPI: CustomStringConvertible {
     private let spi: SPI
-    private let wordLength: Int
-    private var readChannel = AsyncThrowingChannel<[UInt8], Error>()
+    private let blockSize: Int
+    public private(set) var readChannel = AsyncThrowingChannel<[UInt8], Error>()
     private var writeChannel = AsyncChannel<[UInt8]>()
     private var readChannelTask: Task<(), Error>?
 
-    public init(with spi: SPI) async {
+    public nonisolated var description: String {
+        "\(type(of: self))(spi: \(spi), blockSize: \(blockSize))"
+    }
+
+    public init(with spi: SPI, blockSize: Int? = nil) async {
         self.spi = spi
         swifthal_spi_async_enable(spi.obj)
-        wordLength = spi.wordLength == .thirtyTwoBits ? 4 : 1
+        if let blockSize {
+            self.blockSize = blockSize
+        } else {
+            self.blockSize = spi.wordLength == .thirtyTwoBits ? 4 : 1
+        }
         readChannelTask = Task { await readChannelRun() }
         Task { try await writeChannelRun() }
     }
@@ -70,7 +78,7 @@ public actor AsyncSPI {
             throw error
         }
 
-        if spi.wordLength == .thirtyTwoBits && (writeLength % 4) != 0 {
+        if writeLength % blockSize != 0 {
             throw Errno.invalidArgument
         }
 
@@ -84,7 +92,7 @@ public actor AsyncSPI {
     }
 
     private func asyncRead() {
-        swifthal_spi_async_read_with_handler(spi.obj, wordLength) { _, data, count, error in
+        swifthal_spi_async_read_with_handler(spi.obj, blockSize) { _, data, count, error in
             Task {
                 guard error == 0 else {
                     self.readChannel.fail(Errno(error))
@@ -107,7 +115,7 @@ public actor AsyncSPI {
             throw error
         }
 
-        if spi.wordLength == .thirtyTwoBits && (readLength % 4) != 0 {
+        if readLength % blockSize != 0 {
             throw Errno.invalidArgument
         }
 
