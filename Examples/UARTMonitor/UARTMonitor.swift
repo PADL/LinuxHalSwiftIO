@@ -1,8 +1,8 @@
-import SwiftIO
 import AsyncSwiftIO
 import Foundation
+import SwiftIO
 
-fileprivate struct Id: IdName {
+private struct Id: IdName {
     var value: Int32
 
     init(_ value: Int32) {
@@ -41,6 +41,6 @@ public enum UARTDumper {
 // https://stackoverflow.com/questions/39075043/how-to-convert-data-to-hex-string-in-swift
 extension Data {
     var hexDescription: String {
-        return reduce("") {$0 + String(format: "%02x", $1)}
+        reduce("") { $0 + String(format: "%02x", $1) }
     }
 }
