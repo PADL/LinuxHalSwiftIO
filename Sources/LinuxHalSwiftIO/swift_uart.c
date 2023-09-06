@@ -21,7 +21,13 @@
 #include <errno.h>
 #include <string.h>
 #include <poll.h>
+#include <limits.h>
+#ifdef __linux__
 #include <asm/termbits.h>
+#elif defined(__APPLE__)
+#include <sys/time.h>
+#include <sys/param.h>
+#endif
 #include <sys/ioctl.h>
 #include <dispatch/dispatch.h>
 
