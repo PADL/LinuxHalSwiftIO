@@ -131,6 +131,17 @@ int swifthal_os_mq_destory(void *mp) {
 #endif
 }
 
+static struct timespec *
+swifthal_timeout_to_timespec(int timeout, struct timespec *ts) {
+    if (timeout == -1)
+        return NULL;
+
+    ts->tv_sec = timeout / 1000;
+    ts->tv_nsec = (timeout % 1000) * (1000 * 1000); // NSEC_PER_MSEC
+
+    return ts;
+}
+
 int swifthal_os_mq_send(void *mp, void *data, int timeout) {
 #ifdef __linux__
     struct swifthal_os_task__mqueue *mq = mp;
@@ -139,7 +150,9 @@ int swifthal_os_mq_send(void *mp, void *data, int timeout) {
         if (mq_send(mq->mq, data, mq->mq_size, 0) != 0)
             return -errno;
     } else {
-        struct timespec ts = {.tv_sec = timeout, .tv_nsec = 0};
+        struct timespec ts;
+
+        swifthal_timeout_to_timespec(timeout, &ts);
 
         if (mq_timedsend(mq->mq, data, mq->mq_size, 0, &ts) != 0)
             return -errno;
@@ -160,7 +173,9 @@ int swifthal_os_mq_recv(void *mp, void *data, int timeout) {
         if (mq_receive(mq->mq, data, mq->mq_size, &prio) != 0)
             return -errno;
     } else {
-        struct timespec ts = {.tv_sec = timeout, .tv_nsec = 0};
+        struct timespec ts;
+
+        swifthal_timeout_to_timespec(timeout, &ts);
 
         if (mq_timedreceive(mq->mq, data, mq->mq_size, &prio, &ts) != 0)
             return -errno;
@@ -225,7 +240,9 @@ int swifthal_os_mutex_lock(void *mutex, int timeout) {
             return -errno;
     } else {
 #ifdef __linux__
-        struct timespec ts = {.tv_sec = timeout, .tv_nsec = 0};
+        struct timespec ts;
+
+        swifthal_timeout_to_timespec(timeout, &ts);
 
         if (pthread_mutex_timedlock(mutex, &ts) != 0)
             return -errno;
@@ -290,7 +307,10 @@ int swifthal_os_sem_take(void *arg, int timeout) {
             return -errno;
     } else {
 #ifdef __linux__
-        struct timespec ts = {.tv_sec = timeout, .tv_nsec = 0};
+        struct timespec ts;
+
+        swifthal_timeout_to_timespec(timeout, &ts);
+
         if (sem_timedwait(&sem->sem, &ts) != 0)
             return -errno;
 #else

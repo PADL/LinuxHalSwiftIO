@@ -19,9 +19,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <poll.h>
 #include <asm/termbits.h>
 #include <sys/ioctl.h>
-#include <sys/select.h>
 #include <dispatch/dispatch.h>
 
 #include "swift_hal.h"
@@ -30,7 +30,9 @@ struct swifthal_uart {
     int fd;
     dispatch_queue_t queue;
     dispatch_io_t channel;
-    int read_buf_len;
+    size_t read_buf_len;
+    off_t read_buf_offset;
+    unsigned char read_buf[0];
 };
 
 static int swifthal_uart__enable_nbio(struct swifthal_uart *uart) {
@@ -50,10 +52,6 @@ static int swifthal_uart__enable_nbio(struct swifthal_uart *uart) {
 static int swifthal_uart__io_create(struct swifthal_uart *uart) {
     int err;
 
-    err = swifthal_uart__enable_nbio(uart);
-    if (err < 0)
-        return err;
-
     uart->channel = dispatch_io_create(DISPATCH_IO_STREAM, uart->fd, uart->queue,
                                       ^(int error) {
                                       });
@@ -68,7 +66,7 @@ void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
     char device[PATH_MAX + 1];
     int err;
 
-    uart = calloc(1, sizeof(*uart));
+    uart = calloc(1, sizeof(*uart) + cfg->read_buf_len);
     if (uart == NULL)
         return NULL;
 
@@ -83,9 +81,11 @@ void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
 
     uart->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
-    uart->read_buf_len = cfg->read_buf_len;
+    uart->read_buf_len = (int)cfg->read_buf_len;
 
-    err = swifthal_uart_baudrate_set(uart, cfg->baudrate);
+    err = swifthal_uart__enable_nbio(uart);
+    if (err == 0)
+        err = swifthal_uart_baudrate_set(uart, cfg->baudrate);
     if (err == 0)
         err = swifthal_uart_parity_set(uart, cfg->parity);
     if (err == 0)
@@ -274,47 +274,67 @@ int swifthal_uart_char_get(void *arg, unsigned char *c, int timeout) {
 
 int swifthal_uart_write(void *arg, const unsigned char *buf, int length) {
     struct swifthal_uart *uart = arg;
-
-    if (uart) {
-        ssize_t nbytes = write(uart->fd, buf, length);
-        if (nbytes < 0)
-            return -errno;
-        else
-            return (int)nbytes;
-    }
-
-    return -EINVAL;
-}
-
-int swifthal_uart_read(void *arg, unsigned char *buf, int length, int timeout) {
-    struct swifthal_uart *uart = arg;
-    fd_set readfds;
-    struct timeval tv, *tvp;
+    struct pollfd pollfd;
+    int err;
+    const unsigned char *bufp;
+    size_t nremain;
 
     if (uart == NULL)
         return -EINVAL;
 
-    FD_ZERO(&readfds);
-    FD_SET(uart->fd, &readfds);
+    pollfd.fd = uart->fd;
+    pollfd.events = POLLOUT;
+    pollfd.revents = 0;
 
-    if (timeout != -1) {
-        tv.tv_sec = timeout;
-        tv.tv_usec = 0;
-        tvp = &tv;
-    } else {
-        tvp = NULL;
+    for (bufp = buf, nremain = (size_t)length; nremain; ) {
+        err = poll(&pollfd, 1, -1);
+        if (err < 0)
+            return -errno;
+
+        if (pollfd.revents == POLLOUT) {
+            size_t nbytes = write(uart->fd, bufp, nremain);
+            if (nbytes < 0)
+                return -errno;
+
+            nremain -= nbytes;
+            bufp += nbytes;
+        }
     }
 
-    switch (select(uart->fd + 1, &readfds, NULL, NULL, tvp)) {
-    case 0: // timed out
-        return -ETIMEDOUT;
-    case 1: {
-        ssize_t nbytes = read(uart->fd, buf, length);
-        if (nbytes >= 0)
-            break;
-    }
-    default:
-        return -errno;
+    return 0;
+}
+
+int swifthal_uart_read(void *arg, unsigned char *buf, int length, int timeout) {
+    struct swifthal_uart *uart = arg;
+    struct pollfd pollfd;
+    int err;
+    unsigned char *bufp;
+    size_t nremain;
+
+    if (uart == NULL)
+        return -EINVAL;
+
+    pollfd.fd = uart->fd;
+    pollfd.events = POLLIN;
+    pollfd.revents = 0;
+
+    for (bufp = buf, nremain = (size_t)length; nremain; ) {
+        ssize_t nbytes;
+
+        err = poll(&pollfd, 1, timeout);
+        if (err < 0)
+            return -errno;
+        else if (err == 0)
+            return (int)nremain;
+
+        if (pollfd.revents == POLLIN) {
+            size_t nbytes = read(uart->fd, bufp, nremain);
+            if (nbytes < 0)
+                return -errno;
+
+            nremain -= nbytes;
+            bufp += nbytes;
+        }
     }
 
     return 0;
@@ -323,10 +343,7 @@ int swifthal_uart_read(void *arg, unsigned char *buf, int length, int timeout) {
 int swifthal_uart_remainder_get(void *arg) {
     struct swifthal_uart *uart = arg;
 
-    if (uart == NULL)
-        return -EINVAL;
-
-    return 0;
+    return uart->read_buf_len - uart->read_buf_offset;
 }
 
 int swifthal_uart_buffer_clear(void *arg) {
@@ -335,7 +352,9 @@ int swifthal_uart_buffer_clear(void *arg) {
     if (uart == NULL)
         return -EINVAL;
 
-    return -ENOSYS;
+    uart->read_buf_offset = 0;
+
+    return 0;
 }
 
 int swifthal_uart_dev_number_get(void) { return 0; }
