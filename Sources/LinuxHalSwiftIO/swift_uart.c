@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -32,8 +33,12 @@ struct swifthal_uart {
     dispatch_io_t channel;
     size_t read_buf_len;
     off_t read_buf_offset;
-    unsigned char read_buf[0];
+    size_t read_buf_consumed;
+    uint8_t read_buf[0];
 };
+
+#define SWIFTHAL_UART_REMAIN(uart)                                             \
+    ((uart)->read_buf_len - (uart)->read_buf_offset)
 
 static int swifthal_uart__enable_nbio(struct swifthal_uart *uart) {
     int flags = fcntl(uart->fd, F_GETFL, 0);
@@ -325,46 +330,118 @@ int swifthal_uart_write(void *arg, const unsigned char *buf, int length) {
     return 0;
 }
 
+static inline int64_t swifthal_uart__tv2ms(struct timeval *tv) {
+    uint64_t ms;
+
+    ms = tv->tv_sec * 1000;
+    ms += tv->tv_usec / 1000;
+
+    return ms;
+}
+
+// read a block of data, returning number of bytes remaining in the
+// block if the timeout was reached, or a negative value indicating
+// a non-recoverable error
+static ssize_t swifthal_uart__read_buffer(struct swifthal_uart *uart,
+                                          int64_t *timeout) {
+    int err;
+    struct pollfd pollfd;
+    struct timeval now = {.tv_sec = 0, .tv_usec = 0};
+
+    pollfd.fd = uart->fd;
+
+    while (uart->read_buf_offset < uart->read_buf_len) {
+        ssize_t nbytes;
+
+        if (timeout) {
+            struct timeval prev = now;
+
+            gettimeofday(&now, NULL);
+
+            if (prev.tv_sec) {
+                int64_t diff =
+                    swifthal_uart__tv2ms(&now) - swifthal_uart__tv2ms(&prev);
+                *timeout -= diff;
+            }
+
+            if (*timeout < 0)
+                break;
+        }
+
+        pollfd.events = POLLIN;
+        pollfd.revents = 0;
+
+        err = poll(&pollfd, 1, timeout ? *timeout : -1);
+        if (err < 0)
+            return -errno;
+        else if (err == 0)
+            break; // timed out
+
+        if (pollfd.revents != POLLIN)
+            continue;
+
+        nbytes = read(pollfd.fd, &uart->read_buf[uart->read_buf_offset],
+                      SWIFTHAL_UART_REMAIN(uart));
+        if (nbytes < 0)
+            return -errno;
+
+        uart->read_buf_offset += nbytes;
+    }
+
+    assert(uart->read_buf_offset <= uart->read_buf_len);
+
+    return SWIFTHAL_UART_REMAIN(uart);
+}
+
 int swifthal_uart_read(void *arg, unsigned char *buf, int length, int timeout) {
     struct swifthal_uart *uart = arg;
-    struct pollfd pollfd;
-    int err;
-    unsigned char *bufp;
-    size_t nremain;
+    int64_t timeout64 = (int64_t)timeout;
+    ssize_t nremain = (size_t)length;
+    ssize_t res;
 
     if (uart == NULL)
         return -EINVAL;
 
-    pollfd.fd = uart->fd;
-    pollfd.events = POLLIN;
-    pollfd.revents = 0;
+    assert(length > 0);
+    assert(buf);
 
-    for (bufp = buf, nremain = (size_t)length; nremain;) {
-        ssize_t nbytes;
+    while (nremain) {
+        // check if we have unconsumed bytes to return
+        if (uart->read_buf_consumed < uart->read_buf_offset) {
+            size_t nbytes = MIN(SWIFTHAL_UART_REMAIN(uart), nremain);
 
-        err = poll(&pollfd, 1, timeout);
-        if (err < 0)
-            return -errno;
-        else if (err == 0)
-            return (int)nremain;
-
-        if (pollfd.revents == POLLIN) {
-            size_t nbytes = read(uart->fd, bufp, nremain);
-            if (nbytes < 0)
-                return -errno;
-
+            memcpy(buf, &uart->read_buf[uart->read_buf_consumed], nbytes);
+            uart->read_buf_consumed += nbytes;
+            assert(uart->read_buf_consumed <= uart->read_buf_offset);
             nremain -= nbytes;
-            bufp += nbytes;
         }
+
+        if (nremain == 0)
+            break; // all data read
+
+        // reset buffer if it has been completely read
+        if (uart->read_buf_offset == uart->read_buf_len) {
+            assert(uart->read_buf_consumed == uart->read_buf_offset);
+            swifthal_uart_buffer_clear(uart);
+        }
+
+        // attempt to read a complete buffer (subject to timeout)
+        res =
+            swifthal_uart__read_buffer(uart, timeout == -1 ? NULL : &timeout64);
+        if (res < 0)
+            return res;
+
+        if (timeout64 < 0)
+            break; // we timed out
     }
 
-    return 0;
+    return (int)nremain;
 }
 
 int swifthal_uart_remainder_get(void *arg) {
     struct swifthal_uart *uart = arg;
 
-    return uart->read_buf_len - uart->read_buf_offset;
+    return SWIFTHAL_UART_REMAIN(uart);
 }
 
 int swifthal_uart_buffer_clear(void *arg) {
@@ -374,6 +451,7 @@ int swifthal_uart_buffer_clear(void *arg) {
         return -EINVAL;
 
     uart->read_buf_offset = 0;
+    uart->read_buf_consumed = 0;
 
     return 0;
 }
@@ -390,4 +468,75 @@ int swifthal_uart_async_enable(void *arg) {
         return -EEXIST;
 
     return swifthal_uart__io_create(arg);
+}
+
+int swifthal_uart_async_read_with_handler(
+    void *arg,
+    size_t length,
+    bool (^handler)(bool done, const uint8_t *data, size_t count, int error)) {
+    struct swifthal_uart *uart = arg;
+
+    if (uart == NULL)
+        return EINVAL;
+
+    dispatch_io_read(
+        uart->channel, 0, length, uart->queue,
+        ^(bool done, dispatch_data_t data, int error) {
+          if (data == NULL) {
+              handler(done, NULL, 0, error);
+              return;
+          }
+          dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
+                                      const void *loc, size_t size) {
+            bool done2;
+
+            if (done)
+                done2 = dispatch_data_get_size(data) == offset + size;
+            else
+                done2 = false;
+            return handler(done2, loc, size, error);
+          });
+        });
+
+    return 0;
+}
+
+int swifthal_uart_async_write_with_handler(
+    void *arg,
+    const uint8_t *buffer,
+    size_t length,
+    bool (^handler)(bool done, const uint8_t *data, size_t count, int error)) {
+    struct swifthal_uart *uart = arg;
+    dispatch_data_t data;
+
+    if (uart == NULL)
+        return EINVAL;
+
+    data = dispatch_data_create(buffer, length, uart->queue,
+                                DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    if (data == NULL)
+        return -ENOMEM;
+
+    dispatch_io_write(
+        uart->channel, 0, data, uart->queue,
+        ^(bool done, dispatch_data_t data, int error) {
+          if (data == NULL) {
+              handler(done, NULL, 0, error);
+              return;
+          }
+          dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
+                                      const void *loc, size_t size) {
+            bool done2;
+
+            if (done)
+                done2 = dispatch_data_get_size(data) == offset + size;
+            else
+                done2 = false;
+            return handler(done2, loc, size, error);
+          });
+        });
+
+    dispatch_release(data);
+
+    return 0;
 }

@@ -29,6 +29,8 @@
 #define SWIFT_SPI_TRANSFER_32_BITS (1 << 6) // undocumented
 #endif
 
+int swifthal_spi_async_enable(void *_Nonnull spi);
+
 int swifthal_spi_async_read_with_handler(
     void *_Nonnull spi,
     size_t length,
@@ -42,10 +44,21 @@ int swifthal_spi_async_write_with_handler(
     bool (^_Nonnull handler)(
         bool done, const uint8_t *_Nullable data, size_t count, int error));
 
-int swifthal_spi_async_enable(void * _Nonnull spi);
-
 ///
 /// UART
 ///
 
-int swifthal_uart_async_enable(void * _Nonnull uart);
+int swifthal_uart_async_enable(void *_Nonnull uart);
+
+int swifthal_uart_async_read_with_handler(
+    void *_Nonnull uart,
+    size_t length,
+    bool (^_Nonnull handler)(
+        bool done, const uint8_t *_Nullable data, size_t count, int error));
+
+int swifthal_uart_async_write_with_handler(
+    void *_Nonnull uart,
+    const uint8_t *_Nonnull buffer,
+    size_t length,
+    bool (^_Nonnull handler)(
+        bool done, const uint8_t *_Nullable data, size_t count, int error));
