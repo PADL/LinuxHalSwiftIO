@@ -257,7 +257,7 @@ int swifthal_os_mutex_lock(void *mutex, int timeout) {
 
         swifthal_timeout_to_timespec(timeout, &ts);
 
-        err = thread_mutex_timedlock(mutex, &ts);
+        err = pthread_mutex_timedlock(mutex, &ts);
         if (err)
             return -err;
 #else
