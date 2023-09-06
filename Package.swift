@@ -35,6 +35,9 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
+            ],
+            linkerSettings: [
+                .linkedLibrary("gpiod"),
             ]
         ),
         .target(
