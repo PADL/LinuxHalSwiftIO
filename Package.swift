@@ -49,12 +49,12 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "SPIDumper",
+            name: "SPIMonitor",
             dependencies: [
                 "AsyncSwiftIO",
                 "SwiftIO",
             ],
-            path: "Examples/SPIDumper"
+            path: "Examples/SPIMonitor"
         ),
         .testTarget(
             name: "LinuxHalSwiftIOTests",
