@@ -28,8 +28,10 @@
 #define SWIFTHAL_GPIOCHIP "gpiochip0" // FIXME: make configurable
 
 struct swifthal_gpio {
+#ifdef __linux__
     struct gpiod_chip *chip;
     struct gpiod_line *line;
+#endif
     dispatch_queue_t queue;
     dispatch_source_t source;
 };
@@ -43,6 +45,7 @@ void *swifthal_gpio_open(int id,
     if (gpio == NULL)
         return NULL;
 
+#ifdef __linux__
     gpio->chip = gpiod_chip_open_by_name(SWIFTHAL_GPIOCHIP);
     if (gpio->chip == NULL) {
         swifthal_gpio_close(gpio);
@@ -59,6 +62,7 @@ void *swifthal_gpio_open(int id,
         swifthal_gpio_close(gpio);
         return NULL;
     }
+#endif
 
     gpio->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
@@ -69,8 +73,10 @@ int swifthal_gpio_close(void *arg) {
     struct swifthal_gpio *gpio = arg;
 
     if (gpio) {
+#ifdef __linux__
         if (gpio->chip)
             gpiod_chip_close(gpio->chip);
+#endif
         if (gpio->source)
             dispatch_release(gpio->source);
         free(gpio);
@@ -83,6 +89,7 @@ int swifthal_gpio_close(void *arg) {
 int swifthal_gpio_config(void *arg,
                          swift_gpio_direction_t direction,
                          swift_gpio_mode_t io_mode) {
+#ifdef __linux__
     int err;
     struct swifthal_gpio *gpio = arg;
     struct gpiod_line_request_config lrc;
@@ -137,6 +144,9 @@ int swifthal_gpio_config(void *arg,
         return -ENOMEM;
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_gpio_set(void *arg, int level) {
@@ -145,10 +155,13 @@ int swifthal_gpio_set(void *arg, int level) {
     if (gpio == NULL)
         return -EINVAL;
 
+#ifdef __linux__
     if (gpiod_line_set_value(gpio->line, level) < 0)
         return -errno;
-
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_gpio_get(void *arg) {
@@ -158,14 +171,19 @@ int swifthal_gpio_get(void *arg) {
     if (gpio == NULL)
         return -EINVAL;
 
+#ifdef __linux__
     value = gpiod_line_get_value(gpio->line);
     if (value < 0)
         return -errno;
 
     return value;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
+#ifdef __linux__
     int err;
     struct swifthal_gpio *gpio = arg;
     struct gpiod_line_request_config lrc;
@@ -196,6 +214,9 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
         return -errno;
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_gpio_interrupt_callback_install(void *arg,
@@ -263,6 +284,7 @@ int swifthal_gpio_interrupt_disable(void *arg) {
 }
 
 int swifthal_gpio_dev_number_get(void) {
+#ifdef __linux__
     struct gpiod_chip *chip;
     struct gpiod_line_bulk bulk;
 
@@ -276,4 +298,7 @@ int swifthal_gpio_dev_number_get(void) {
     gpiod_chip_close(chip);
 
     return bulk.num_lines;
+#else
+    return 0;
+#endif
 }
