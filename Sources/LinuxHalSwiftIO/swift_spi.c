@@ -31,11 +31,12 @@
 #include "swift_hal.h"
 
 struct swifthal_spi {
-    unsigned short operation;
     int fd;
-    dispatch_queue_t queue;
+    uint32_t speed_old;
+    uint16_t operation_old;
     void (*w_notify)(void *);
     void (*r_notify)(void *);
+    dispatch_queue_t queue;
     dispatch_io_t channel;
 };
 
@@ -45,10 +46,11 @@ static int swifthal_spi__enable_nbio(struct swifthal_spi *spi) {
     int flags = fcntl(spi->fd, F_GETFL, 0);
     if ((flags & O_NONBLOCK) == 0) {
         if (fcntl(spi->fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-            fprintf(stderr,
-                    "LinuxHalSwiftIO: failed to enable non-blocking I/O on SPI fd "
-                    "%d: %m\n",
-                    spi->fd);
+            fprintf(
+                stderr,
+                "LinuxHalSwiftIO: failed to enable non-blocking I/O on SPI fd "
+                "%d: %m\n",
+                spi->fd);
             return -errno;
         }
     }
@@ -63,12 +65,59 @@ static int swifthal_spi__io_create(struct swifthal_spi *spi) {
         return err;
 
     spi->channel = dispatch_io_create(DISPATCH_IO_STREAM, spi->fd, spi->queue,
-                                      ^(int error) {
+                                      ^(int error){
                                       });
     if (spi->channel == NULL)
         return -ENOMEM;
 
     return 0;
+}
+
+static int swifthal_spi__read_config(struct swifthal_spi *spi,
+                                     uint32_t *speed,
+                                     uint16_t *operation) {
+#ifdef __linux__
+    uint8_t tmp;
+
+    *speed = 0;
+    *operation = 0;
+
+    if (ioctl(spi->fd, SPI_IOC_RD_MAX_SPEED_HZ, speed) < 0)
+        return -errno;
+
+    if (ioctl(spi->fd, SPI_IOC_RD_MODE, &tmp) < 0)
+        return -errno;
+
+    if (tmp & SPI_CPOL)
+        *operation |= SWIFT_SPI_MODE_CPOL;
+    if (tmp & SPI_CPHA)
+        *operation |= SWIFT_SPI_MODE_CPHA;
+    if (tmp & SPI_LOOP)
+        *operation |= SWIFT_SPI_MODE_LOOP;
+
+    if (ioctl(spi->fd, SPI_IOC_RD_LSB_FIRST, &tmp) < 0)
+        return -errno;
+
+    *operation |= tmp ? SWIFT_SPI_TRANSFER_LSB : SWIFT_SPI_TRANSFER_MSB;
+
+    if (ioctl(spi->fd, SPI_IOC_RD_BITS_PER_WORD, &tmp) < 0)
+        return -errno;
+
+    switch (tmp) {
+    case 8:
+        *operation |= SWIFT_SPI_TRANSFER_8_BITS;
+        break;
+    case 32:
+        *operation |= SWIFT_SPI_TRANSFER_32_BITS;
+        break;
+    default:
+        return -EINVAL;
+    }
+
+    return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 void *swifthal_spi_open(int id,
@@ -106,7 +155,10 @@ void *swifthal_spi_open(int id,
         spi->r_notify = r_notify;
     }
 
-    if (swifthal_spi_config(spi, speed, operation) < 0) {
+    // save previous configuration so we can restore it
+    if (swifthal_spi__read_config(spi, &spi->speed_old, &spi->operation_old) <
+            0 ||
+        swifthal_spi_config(spi, speed, operation) < 0) {
         swifthal_spi_close(spi);
         return NULL;
     }
@@ -118,6 +170,8 @@ int swifthal_spi_close(void *arg) {
     struct swifthal_spi *spi = arg;
 
     if (spi) {
+        if (spi->speed_old)
+            (void)swifthal_spi_config(spi, spi->speed_old, spi->operation_old);
         if (spi->fd != -1)
             close(spi->fd);
         if (spi->channel) {
@@ -152,8 +206,7 @@ int swifthal_spi_config(void *arg, int speed, unsigned short operation) {
         mode |= SPI_LOOP;
     }
 
-    if (ioctl(spi->fd, SPI_IOC_RD_MODE, &mode) < 0 ||
-        ioctl(spi->fd, SPI_IOC_WR_MODE, &mode) < 0)
+    if (ioctl(spi->fd, SPI_IOC_WR_MODE, &mode) < 0)
         return -errno;
 
     if (operation & SWIFT_SPI_TRANSFER_LSB) {
@@ -171,15 +224,15 @@ int swifthal_spi_config(void *arg, int speed, unsigned short operation) {
     } else {
         bpw = 0;
     }
-    if (ioctl(spi->fd, SPI_IOC_RD_BITS_PER_WORD, &bpw) < 0 ||
-        ioctl(spi->fd, SPI_IOC_WR_BITS_PER_WORD, &bpw) < 0)
-        return -errno;
+    if (bpw) {
+        if (ioctl(spi->fd, SPI_IOC_WR_BITS_PER_WORD, &bpw) < 0)
+            return -errno;
+    }
 
-    if (ioctl(spi->fd, SPI_IOC_RD_MAX_SPEED_HZ, &freq) < 0 ||
-        ioctl(spi->fd, SPI_IOC_WR_MAX_SPEED_HZ, &freq) < 0)
-        return -errno;
-
-    spi->operation = operation;
+    if (freq) {
+        if (ioctl(spi->fd, SPI_IOC_WR_MAX_SPEED_HZ, &freq) < 0)
+            return -errno;
+    }
 #else
     return -ENOSYS;
 #endif
@@ -221,23 +274,22 @@ int swifthal_spi_transceive(void *arg,
                             int r_length) {
 #ifdef __linux__
     struct swifthal_spi *spi = arg;
+    struct spi_ioc_transfer xfer;
 
-    if (spi) {
-        struct spi_ioc_transfer xfer[2];
+    if (spi == NULL || w_buf == NULL || r_buf == NULL)
+        return -EINVAL;
 
-        memset(xfer, 0, sizeof(xfer));
-        xfer[0].tx_buf = (uintptr_t)w_buf;
-        xfer[0].len = w_length;
-        xfer[1].rx_buf = (uintptr_t)r_buf;
-        xfer[1].len = r_length;
+    memset(&xfer, 0, sizeof(xfer));
+    memset(r_buf, 0, r_length);
 
-        if (ioctl(spi->fd, SPI_IOC_MESSAGE(2), xfer) < 0)
-            return -errno;
+    xfer.tx_buf = (uintptr_t)w_buf;
+    xfer.rx_buf = (uintptr_t)r_buf;
+    xfer.len = MIN(w_length, r_length); // not sure if this is the best API
 
-        return 0;
-    }
+    if (ioctl(spi->fd, SPI_IOC_MESSAGE(1), &xfer) < 0)
+        return -errno;
 
-    return -EINVAL;
+    return 0;
 #else
     return -ENOSYS;
 #endif
@@ -317,8 +369,8 @@ int swifthal_spi_async_read_with_handler(
         spi->channel, 0, length, spi->queue,
         ^(bool done, dispatch_data_t data, int error) {
           if (data == NULL) {
-            handler(done, NULL, 0, error);
-            return;
+              handler(done, NULL, 0, error);
+              return;
           }
           dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
                                       const void *loc, size_t size) {
@@ -355,8 +407,8 @@ int swifthal_spi_async_write_with_handler(
         spi->channel, 0, data, spi->queue,
         ^(bool done, dispatch_data_t data, int error) {
           if (data == NULL) {
-            handler(done, NULL, 0, error);
-            return;
+              handler(done, NULL, 0, error);
+              return;
           }
           dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
                                       const void *loc, size_t size) {

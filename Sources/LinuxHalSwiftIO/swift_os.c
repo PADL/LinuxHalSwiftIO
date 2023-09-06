@@ -131,8 +131,8 @@ int swifthal_os_mq_destory(void *mp) {
 #endif
 }
 
-static struct timespec *
-swifthal_timeout_to_timespec(int timeout, struct timespec *ts) {
+static struct timespec *swifthal_timeout_to_timespec(int timeout,
+                                                     struct timespec *ts) {
     if (timeout == -1)
         return NULL;
 

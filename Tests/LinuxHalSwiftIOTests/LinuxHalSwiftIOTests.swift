@@ -3,9 +3,9 @@ import AsyncSwiftIO
 import SwiftIO
 import XCTest
 
-// these tests aren't going to work on all devices, of course
+// assumes MISO connected to MOSI for loopback
 
-struct Id: IdName {
+fileprivate struct Id: IdName {
     var value: Int32
 
     init(_ value: Int32) {
@@ -14,26 +14,14 @@ struct Id: IdName {
 }
 
 final class LinuxHalSwiftIOTests: XCTestCase {
-    func testSpiLoopbackSync() throws {
-        let spi = SPI(Id(0), loopback: true)
+    let spi = SPI(Id(1), speed: 1000, bitOrder: .MSB)
 
-        let writeBuffer: [UInt8] = [0xCA, 0xFE, 0xBA, 0xBE]
-        var readBuffer = [UInt8](repeating: 0xFF, count: 4)
+    func testSpiLoopbackTransceive() throws {
+        let writeBuffer: [UInt8] = [1, 2, 3, 4, 10, 11, 12, 13, 0xff, 0]
+        var readBuffer = [UInt8](repeating: 0xFF, count: writeBuffer.count)
 
         _ = spi.transceive(writeBuffer, into: &readBuffer)
-        XCTAssertEqual(writeBuffer, readBuffer)
-    }
 
-    func testSpiLoopbackAsync() async throws {
-        let spi = await AsyncSPI(with: SPI(Id(0), loopback: true))
-        let writeBuffer: [UInt8] = [0xCA, 0xFE, 0xBA, 0xBE]
-        var readBuffer = [UInt8](repeating: 0xFF, count: 4)
-        let bufferExpectation = XCTestExpectation(description: "Read/write buffer matching")
-
-        try await spi.write(writeBuffer)
-        _ = try await spi.read(into: &readBuffer)
         XCTAssertEqual(writeBuffer, readBuffer)
-        bufferExpectation.fulfill()
-        wait(for: [bufferExpectation], timeout: 1)
     }
 }

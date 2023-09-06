@@ -39,10 +39,11 @@ static int swifthal_uart__enable_nbio(struct swifthal_uart *uart) {
     int flags = fcntl(uart->fd, F_GETFL, 0);
     if ((flags & O_NONBLOCK) == 0) {
         if (fcntl(uart->fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-            fprintf(stderr,
-                    "LinuxHalSwiftIO: failed to enable non-blocking I/O on UART fd "
-                    "%d: %m\n",
-                    uart->fd);
+            fprintf(
+                stderr,
+                "LinuxHalSwiftIO: failed to enable non-blocking I/O on UART fd "
+                "%d: %m\n",
+                uart->fd);
             return -errno;
         }
     }
@@ -52,9 +53,10 @@ static int swifthal_uart__enable_nbio(struct swifthal_uart *uart) {
 static int swifthal_uart__io_create(struct swifthal_uart *uart) {
     int err;
 
-    uart->channel = dispatch_io_create(DISPATCH_IO_STREAM, uart->fd, uart->queue,
-                                      ^(int error) {
-                                      });
+    uart->channel =
+        dispatch_io_create(DISPATCH_IO_STREAM, uart->fd, uart->queue,
+                           ^(int error){
+                           });
     if (uart->channel == NULL)
         return -ENOMEM;
 
@@ -120,6 +122,7 @@ int swifthal_uart_close(void *arg) {
 }
 
 int swifthal_uart_baudrate_set(void *arg, int baudrate) {
+#ifdef __linux__
     struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
@@ -135,9 +138,13 @@ int swifthal_uart_baudrate_set(void *arg, int baudrate) {
         return -errno;
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_uart_parity_set(void *arg, swift_uart_parity_t parity) {
+#ifdef __linux__
     struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
@@ -166,9 +173,13 @@ int swifthal_uart_parity_set(void *arg, swift_uart_parity_t parity) {
         return -errno;
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_uart_stop_bits_set(void *arg, swift_uart_stop_bits_t stop_bits) {
+#ifdef __linux__
     struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
@@ -192,10 +203,13 @@ int swifthal_uart_stop_bits_set(void *arg, swift_uart_stop_bits_t stop_bits) {
         return -errno;
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
-int swifthal_uart_data_bits_set(void *arg,
-                                swift_uart_data_bits_t data_bits) {
+int swifthal_uart_data_bits_set(void *arg, swift_uart_data_bits_t data_bits) {
+#ifdef __linux__
     struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
@@ -217,9 +231,13 @@ int swifthal_uart_data_bits_set(void *arg,
         return -errno;
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_uart_config_get(void *arg, swift_uart_cfg_t *cfg) {
+#ifdef __linux__
     struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
@@ -258,6 +276,9 @@ int swifthal_uart_config_get(void *arg, swift_uart_cfg_t *cfg) {
     }
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_uart_char_put(void *arg, unsigned char c) {
@@ -286,7 +307,7 @@ int swifthal_uart_write(void *arg, const unsigned char *buf, int length) {
     pollfd.events = POLLOUT;
     pollfd.revents = 0;
 
-    for (bufp = buf, nremain = (size_t)length; nremain; ) {
+    for (bufp = buf, nremain = (size_t)length; nremain;) {
         err = poll(&pollfd, 1, -1);
         if (err < 0)
             return -errno;
@@ -318,7 +339,7 @@ int swifthal_uart_read(void *arg, unsigned char *buf, int length, int timeout) {
     pollfd.events = POLLIN;
     pollfd.revents = 0;
 
-    for (bufp = buf, nremain = (size_t)length; nremain; ) {
+    for (bufp = buf, nremain = (size_t)length; nremain;) {
         ssize_t nbytes;
 
         err = poll(&pollfd, 1, timeout);
