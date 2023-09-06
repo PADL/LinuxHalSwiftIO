@@ -105,6 +105,8 @@ void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
         return NULL;
     }
 
+    swifthal_uart_buffer_clear(uart);
+
     return uart;
 }
 
@@ -342,6 +344,11 @@ static inline int64_t swifthal_uart__tv2ms(struct timeval *tv) {
 // read a block of data, returning number of bytes remaining in the
 // block if the timeout was reached, or a negative value indicating
 // a non-recoverable error
+//
+// pass NULL for timeout if blocking indefinitely is desired
+//
+// on return timeout is updated to reflect the number of seconds
+// remaining, in case a complete buffer was read within the timeout
 static ssize_t swifthal_uart__read_buffer(struct swifthal_uart *uart,
                                           int64_t *timeout) {
     int err;
@@ -386,9 +393,8 @@ static ssize_t swifthal_uart__read_buffer(struct swifthal_uart *uart,
             return -errno;
 
         uart->read_buf_offset += nbytes;
+        assert(uart->read_buf_offset <= uart->read_buf_len);
     }
-
-    assert(uart->read_buf_offset <= uart->read_buf_len);
 
     return SWIFTHAL_UART_REMAIN(uart);
 }
@@ -406,14 +412,14 @@ int swifthal_uart_read(void *arg, unsigned char *buf, int length, int timeout) {
     assert(buf);
 
     while (nremain) {
-        // check if we have unconsumed bytes to return
+        // check for consumed bytes to return
         if (uart->read_buf_consumed < uart->read_buf_offset) {
-            size_t nbytes = MIN(SWIFTHAL_UART_REMAIN(uart), nremain);
+            size_t nconsume = MIN(SWIFTHAL_UART_REMAIN(uart), nremain);
 
-            memcpy(buf, &uart->read_buf[uart->read_buf_consumed], nbytes);
-            uart->read_buf_consumed += nbytes;
+            memcpy(buf, &uart->read_buf[uart->read_buf_consumed], nconsume);
+            uart->read_buf_consumed += nconsume;
             assert(uart->read_buf_consumed <= uart->read_buf_offset);
-            nremain -= nbytes;
+            nremain -= nconsume;
         }
 
         if (nremain == 0)
@@ -452,6 +458,10 @@ int swifthal_uart_buffer_clear(void *arg) {
 
     uart->read_buf_offset = 0;
     uart->read_buf_consumed = 0;
+
+#ifndef NDEBUG
+    memset(uart->read_buf, 0xff, uart->read_buf_len);
+#endif
 
     return 0;
 }
