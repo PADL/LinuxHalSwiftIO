@@ -11,7 +11,7 @@ fileprivate struct Id: IdName {
 }
 
 @main
-public enum SPIDumper {
+public enum UARTDumper {
     public static func main() {
         var device: Int32!
 
@@ -23,12 +23,12 @@ public enum SPIDumper {
             device = 0
         }
 
-        let spi = SPI(Id(device))
+        let spi = UART(Id(device))
 
         Task {
-            let asyncSpi = await AsyncSPI(with: spi)
+            let asyncSpi = await AsyncUART(with: spi)
 
-            debugPrint("Initialized async SPI handle \(asyncSpi)...")
+            debugPrint("Initialized async UART handle \(asyncSpi)...")
 
             for try await data in await asyncSpi.readChannel {
                 debugPrint(Data(data).hexDescription)

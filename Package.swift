@@ -56,6 +56,14 @@ let package = Package(
             ],
             path: "Examples/SPIMonitor"
         ),
+        .executableTarget(
+            name: "UARTMonitor",
+            dependencies: [
+                "AsyncSwiftIO",
+                "SwiftIO",
+            ],
+            path: "Examples/UARTMonitor"
+        ),
         .testTarget(
             name: "LinuxHalSwiftIOTests",
             dependencies: [
