@@ -26,7 +26,7 @@ public enum UARTDumper {
         let spi = UART(Id(device))
 
         Task {
-            let asyncSpi = await AsyncUART(with: spi)
+            let asyncSpi = AsyncUART(with: spi)
 
             debugPrint("Initialized async UART handle \(asyncSpi)...")
 

@@ -31,7 +31,7 @@ public actor AsyncSPI: CustomStringConvertible {
         "\(type(of: self))(spi: \(spi), blockSize: \(blockSize))"
     }
 
-    public init(with spi: SPI, blockSize: Int? = nil) async {
+    public init(with spi: SPI, blockSize: Int? = nil) {
         self.spi = spi
         swifthal_spi_async_enable(spi.obj)
         if let blockSize {
@@ -39,8 +39,11 @@ public actor AsyncSPI: CustomStringConvertible {
         } else {
             self.blockSize = spi.wordLength == .thirtyTwoBits ? 4 : 1
         }
-        readChannelTask = Task { await readChannelRun() }
-        Task { try await writeChannelRun() }
+
+        Task {
+            await readChannelInitTask()
+            try await writeChannelRun()
+        }
     }
 
     deinit {
@@ -83,6 +86,12 @@ public actor AsyncSPI: CustomStringConvertible {
         }
 
         await writeChannel.send(Array(data[0..<writeLength]))
+    }
+
+    private func readChannelInitTask() {
+        readChannelTask = Task {
+            await readChannelRun()
+        }
     }
 
     private func readChannelRun() async {

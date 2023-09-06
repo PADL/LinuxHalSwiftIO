@@ -31,14 +31,17 @@ public actor AsyncUART: CustomStringConvertible {
         "\(type(of: self))(uart: \(uart))"
     }
 
-    public init(with uart: UART) async {
+    public init(with uart: UART) {
         self.uart = uart
         var cfg = swift_uart_cfg_t()
         swifthal_uart_async_enable(uart.obj)
         swifthal_uart_config_get(uart.obj, &cfg)
-        self.readBufferLength = Int(cfg.read_buf_len)
-        readChannelTask = Task { await readChannelRun() }
-        Task { try await writeChannelRun() }
+        readBufferLength = Int(cfg.read_buf_len)
+
+        Task {
+            await readChannelInitTask()
+            try await writeChannelRun()
+        }
     }
 
     deinit {
@@ -77,6 +80,12 @@ public actor AsyncUART: CustomStringConvertible {
         }
 
         await writeChannel.send(Array(data[0..<writeLength]))
+    }
+
+    private func readChannelInitTask() {
+        readChannelTask = Task {
+            await readChannelRun()
+        }
     }
 
     private func readChannelRun() async {
