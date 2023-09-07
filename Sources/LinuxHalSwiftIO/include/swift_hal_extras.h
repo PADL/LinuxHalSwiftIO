@@ -29,8 +29,24 @@
 #define SWIFT_SPI_TRANSFER_32_BITS (1 << 6) // undocumented
 #endif
 
+#ifndef MSEC_PER_SEC
+#define MSEC_PER_SEC (1000)
+#endif
+
+#ifndef USEC_PER_MSEC
+#define USEC_PER_MSEC (1000)
+#endif
+
+#ifndef NSEC_PER_USEC
+#define NSEC_PER_USEC (1000)
+#endif
+
 #ifndef NSEC_PER_MSEC
-#define NSEC_PER_MSEC (1000 * 1000)
+#define NSEC_PER_MSEC (NSEC_PER_USEC * USEC_PER_MSEC)
+#endif
+
+#ifndef USEC_PER_SEC
+#define USEC_PER_SEC (USEC_PER_MSEC * MSEC_PER_SEC)
 #endif
 
 int swifthal_spi_async_enable(void *_Nonnull spi);
