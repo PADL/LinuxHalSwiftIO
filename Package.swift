@@ -26,6 +26,7 @@ let package = Package(
         // Dependencies declare other packages that this package depends on.
         .package(url: "https://github.com/PADL/SwiftIO.git", branch: "linux-hal"),
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "0.1.0"),
+        .package(url: "https://github.com/lhoward/AsyncExtensions", branch: "linux"),
     ],
     targets: [
         .target(
@@ -43,8 +44,9 @@ let package = Package(
         .target(
             name: "AsyncSwiftIO",
             dependencies: [
-                .product(name: "SwiftIO", package: "SwiftIO"),
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+                "AsyncExtensions",
+                .product(name: "SwiftIO", package: "SwiftIO"),
                 "LinuxHalSwiftIO",
             ],
             cSettings: [
