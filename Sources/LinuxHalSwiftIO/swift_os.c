@@ -144,7 +144,7 @@ static struct timespec *swifthal_timeout_to_timespec(int timeout,
         return NULL;
 
     ts->tv_sec = timeout / 1000;
-    ts->tv_nsec = (timeout % 1000) * (1000 * 1000); // NSEC_PER_MSEC
+    ts->tv_nsec = (timeout % 1000) * NSEC_PER_MSEC;
 
     return ts;
 }

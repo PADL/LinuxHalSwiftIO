@@ -61,10 +61,6 @@ int swifthal_timer_close(void *arg) {
     return -EINVAL;
 }
 
-#ifndef NSEC_PER_MSEC
-#define NSEC_PER_MSEC (1000 * 1000)
-#endif
-
 int swifthal_timer_start(void *arg, swift_timer_type_t type, int period) {
     struct swifthal_timer *timer = arg;
 
