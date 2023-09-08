@@ -168,6 +168,7 @@ void *swifthal_spi_open_ex(int id,
         return NULL;
     }
 
+    dispatch_retain(queue);
     spi->queue = queue;
 
     // save previous configuration so we can restore it
@@ -189,6 +190,8 @@ int swifthal_spi_close(void *arg) {
             (void)swifthal_spi_config(spi, spi->speed_old, spi->operation_old);
         if (spi->fd != -1)
             close(spi->fd);
+        if (spi->queue)
+            dispatch_release(spi->queue);
         if (spi->channel) {
             dispatch_io_close(spi->channel, DISPATCH_IO_STOP);
             dispatch_release(spi->channel);
