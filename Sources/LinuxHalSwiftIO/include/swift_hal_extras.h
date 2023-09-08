@@ -25,9 +25,6 @@
 #ifndef SWIFT_SPI_TRANSFER_8_BITS
 #define SWIFT_SPI_TRANSFER_8_BITS (1 << 5) // undocumented
 #endif
-#ifndef SWIFT_SPI_TRANSFER_32_BITS
-#define SWIFT_SPI_TRANSFER_32_BITS (1 << 6) // undocumented
-#endif
 
 #ifndef MSEC_PER_SEC
 #define MSEC_PER_SEC (1000)

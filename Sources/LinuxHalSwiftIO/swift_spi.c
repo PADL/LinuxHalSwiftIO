@@ -107,9 +107,6 @@ static int swifthal_spi__read_config(struct swifthal_spi *spi,
     case 8:
         *operation |= SWIFT_SPI_TRANSFER_8_BITS;
         break;
-    case 32:
-        *operation |= SWIFT_SPI_TRANSFER_32_BITS;
-        break;
     default:
         return -EINVAL;
     }
@@ -237,8 +234,6 @@ int swifthal_spi_config(void *arg, int speed, unsigned short operation) {
 
     if (operation & SWIFT_SPI_TRANSFER_8_BITS) {
         bpw = 8;
-    } else if (operation & SWIFT_SPI_TRANSFER_32_BITS) {
-        bpw = 32;
     } else {
         bpw = 0;
     }

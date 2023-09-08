@@ -38,7 +38,7 @@ public actor AsyncSPI: CustomStringConvertible {
         if let blockSize {
             self.blockSize = blockSize
         } else {
-            self.blockSize = spi.wordLength == .thirtyTwoBits ? 4 : 1
+            self.blockSize = 1
         }
 
         Task {
