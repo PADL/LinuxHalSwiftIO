@@ -126,6 +126,32 @@ void *swifthal_spi_open(int id,
                         void (*w_notify)(void *),
                         void (*r_notify)(void *)) {
     struct swifthal_spi *spi;
+    int err;
+
+    spi = swifthal_spi_open_ex(id, speed, operation,
+                               dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
+    if (spi == NULL)
+        return NULL;
+
+    if (w_notify || r_notify) {
+        err = swifthal_spi__io_create(spi);
+        if (err) {
+            swifthal_spi_close(spi);
+            return NULL;
+        }
+
+        spi->w_notify = w_notify;
+        spi->r_notify = r_notify;
+    }
+
+    return spi;
+}
+
+void *swifthal_spi_open_ex(int id,
+                           int speed,
+                           unsigned short operation,
+                           dispatch_queue_t queue) {
+    struct swifthal_spi *spi;
     char device[PATH_MAX + 1];
     int err;
 
@@ -142,18 +168,7 @@ void *swifthal_spi_open(int id,
         return NULL;
     }
 
-    spi->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-
-    if (w_notify || r_notify) {
-        err = swifthal_spi__io_create(spi);
-        if (err) {
-            swifthal_spi_close(spi);
-            return NULL;
-        }
-
-        spi->w_notify = w_notify;
-        spi->r_notify = r_notify;
-    }
+    spi->queue = queue;
 
     // save previous configuration so we can restore it
     if (swifthal_spi__read_config(spi, &spi->speed_old, &spi->operation_old) <
