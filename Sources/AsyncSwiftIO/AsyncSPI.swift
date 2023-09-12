@@ -26,7 +26,6 @@ public actor AsyncSPI: CustomStringConvertible {
     private let blockSize: Int
     public private(set) var readChannel = AsyncThrowingChannel<[UInt8], Error>()
     private var writeChannel = AsyncChannel<[UInt8]>()
-    private var readChannelTask: Task<(), Error>?
 
     public nonisolated var description: String {
         "\(type(of: self))(spi: \(spi), blockSize: \(blockSize))"
@@ -42,7 +41,7 @@ public actor AsyncSPI: CustomStringConvertible {
         }
 
         Task {
-            await readChannelInitTask()
+            await readChannelRun()
             try await writeChannelRun()
         }
     }
@@ -89,24 +88,11 @@ public actor AsyncSPI: CustomStringConvertible {
         await writeChannel.send(Array(data[0..<writeLength]))
     }
 
-    private func readChannelInitTask() {
-        readChannelTask = Task {
-            await readChannelRun()
-        }
-    }
-
-    private func readChannelRun() async {
-        repeat {
-            asyncRead()
-        } while !(readChannelTask?.isCancelled ?? true)
-    }
-
-    private func asyncRead() {
+    private func readChannelRun() {
         swifthal_spi_async_read_with_handler(spi.obj, blockSize) { _, data, count, error in
             Task {
                 guard error == 0 else {
                     self.readChannel.fail(Errno(error))
-                    self.readChannelTask?.cancel()
                     return
                 }
 
