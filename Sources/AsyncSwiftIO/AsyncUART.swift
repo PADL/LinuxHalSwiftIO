@@ -23,7 +23,7 @@ import SwiftIO
 
 public actor AsyncUART: CustomStringConvertible {
     private let uart: UART
-    public private(set) var readChannel = AsyncThrowingBufferedChannel<[UInt8], Error>()
+    public private(set) var readChannel = AsyncThrowingChannel<[UInt8], Error>()
     private var writeChannel = AsyncChannel<[UInt8]>()
     private var readChannelTask: Task<(), Error>?
     private let readBufferLength: Int
@@ -105,7 +105,7 @@ public actor AsyncUART: CustomStringConvertible {
                 }
 
                 let bytes = Array(UnsafeBufferPointer<UInt8>(start: data, count: count))
-                self.readChannel.send(bytes)
+                await self.readChannel.send(bytes)
             }
             return true // FIXME: check this
         }

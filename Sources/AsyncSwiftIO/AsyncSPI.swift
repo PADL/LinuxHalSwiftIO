@@ -24,7 +24,7 @@ import SwiftIO
 public actor AsyncSPI: CustomStringConvertible {
     private let spi: SPI
     private let blockSize: Int
-    public private(set) var readChannel = AsyncThrowingBufferedChannel<[UInt8], Error>()
+    public private(set) var readChannel = AsyncThrowingChannel<[UInt8], Error>()
     private var writeChannel = AsyncChannel<[UInt8]>()
     private var readChannelTask: Task<(), Error>?
 
@@ -111,7 +111,7 @@ public actor AsyncSPI: CustomStringConvertible {
                 }
 
                 let bytes = Array(UnsafeBufferPointer<UInt8>(start: data, count: count))
-                self.readChannel.send(bytes)
+                await self.readChannel.send(bytes)
             }
             return true // FIXME: check this
         }
