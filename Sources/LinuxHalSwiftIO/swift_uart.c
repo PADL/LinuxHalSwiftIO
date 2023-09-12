@@ -34,7 +34,7 @@
 #include "swift_hal.h"
 
 struct swifthal_uart {
-    int fd;
+    dispatch_fd_t fd;
     dispatch_queue_t queue;
     dispatch_io_t channel;
     size_t read_buf_len;

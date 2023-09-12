@@ -32,7 +32,7 @@
 #include "swift_hal.h"
 
 struct swifthal_i2c {
-    int fd;
+    dispatch_fd_t fd;
     dispatch_queue_t queue;
 };
 

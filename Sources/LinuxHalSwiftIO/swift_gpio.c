@@ -230,7 +230,7 @@ int swifthal_gpio_interrupt_callback_install(void *arg,
     dispatch_source_set_event_handler(gpio->source, ^{
 #if 0
         struct gpiod_line_event event;
-        int fd = dispatch_source_get_handle(gpio->source);
+        dispatch_fd_t fd = dispatch_source_get_handle(gpio->source);
 
         memset(&event, 0, sizeof(event));
 

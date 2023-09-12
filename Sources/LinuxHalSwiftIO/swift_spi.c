@@ -31,7 +31,7 @@
 #include "swift_hal.h"
 
 struct swifthal_spi {
-    int fd;
+    dispatch_fd_t fd;
     uint32_t speed_old;
     uint16_t operation_old;
     void (*w_notify)(void *);
@@ -297,7 +297,7 @@ int swifthal_spi_transceive(void *arg,
 
     xfer.tx_buf = (uintptr_t)w_buf;
     xfer.rx_buf = (uintptr_t)r_buf;
-    xfer.len = MIN(w_length, r_length); // not sure if this is the best API
+    xfer.len = MIN(w_length, r_length); // FIXME: fix API
 
     if (ioctl(spi->fd, SPI_IOC_MESSAGE(1), &xfer) < 0)
         return -errno;
