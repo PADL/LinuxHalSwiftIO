@@ -62,3 +62,5 @@ void *swifthal_gpio__open(int id,
                           swift_gpio_mode_t io_mode);
 
 int swifthal_gpio__set_handler(void *arg, void (^handler)(void));
+
+int swifthal_gpio__event_read(void *arg, bool *rising_edge);

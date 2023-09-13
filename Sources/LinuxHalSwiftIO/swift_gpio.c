@@ -234,6 +234,24 @@ int swifthal_gpio__set_handler(void *arg, void (^handler)(void)) {
     return 0;
 }
 
+int swifthal_gpio__event_read(void *arg, bool *rising_edge) {
+    struct swifthal_gpio *gpio = arg;
+    struct gpiod_line_event event;
+
+    *rising_edge = false;
+
+    if (gpio == NULL ||
+        gpiod_line_direction(gpio->line) != GPIOD_LINE_DIRECTION_INPUT)
+        return -EINVAL;
+
+    if (gpiod_line_event_read(gpio->line, &event) < 0)
+        return -errno;
+
+    *rising_edge = event.event_type == GPIOD_LINE_EVENT_RISING_EDGE;
+
+    return 0;
+}
+
 int swifthal_gpio_interrupt_callback_install(void *arg,
                                              const void *param,
                                              void (*callback)(const void *)) {
