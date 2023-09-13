@@ -46,13 +46,15 @@
 #define USEC_PER_SEC (USEC_PER_MSEC * MSEC_PER_SEC)
 #endif
 
-void * _Nullable
-swifthal_spi_open_ex(int id,
-                     int speed,
-                     unsigned short operation,
-                     dispatch_queue_t _Nonnull queue);
+void *_Nullable swifthal_spi_open_ex(int id,
+                                     int speed,
+                                     unsigned short operation,
+                                     dispatch_queue_t _Nonnull queue);
 
 int swifthal_spi_async_enable(void *_Nonnull spi);
+
+// set data available GPIO pin (-1 to disable)
+int swifthal_spi_set_data_available(void *_Nonnull spi, int data_avail);
 
 int swifthal_spi_async_read_with_handler(
     void *_Nonnull spi,

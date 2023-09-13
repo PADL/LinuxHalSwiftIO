@@ -22,7 +22,7 @@
 #include <stdatomic.h>
 #include <dispatch/dispatch.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 struct swifthal_timer {
     swift_timer_type_t type;

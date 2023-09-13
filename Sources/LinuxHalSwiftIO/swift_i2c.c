@@ -29,7 +29,7 @@
 #endif
 #include <dispatch/dispatch.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 struct swifthal_i2c {
     dispatch_fd_t fd;

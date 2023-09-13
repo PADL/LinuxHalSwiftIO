@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 void *swifthal_i2s_open(int id) { return NULL; }
 

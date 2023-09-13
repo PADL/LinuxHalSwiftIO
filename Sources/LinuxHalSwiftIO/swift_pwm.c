@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 void *swifthal_pwm_open(int id) { return NULL; }
 

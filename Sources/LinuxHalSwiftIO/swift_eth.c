@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 int swift_eth_setup_mac(const unsigned char *mac) { return -ENOSYS; }
 

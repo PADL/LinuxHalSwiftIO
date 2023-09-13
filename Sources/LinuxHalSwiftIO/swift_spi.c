@@ -28,7 +28,7 @@
 #endif
 #include <dispatch/dispatch.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 struct swifthal_spi {
     dispatch_fd_t fd;
@@ -38,6 +38,7 @@ struct swifthal_spi {
     void (*r_notify)(void *);
     dispatch_queue_t queue;
     dispatch_io_t channel;
+    struct swifthal_gpio *data_avail;
 };
 
 // FIXME is async I/O actually supported by the Linux SPI subsystems? appears
@@ -125,8 +126,9 @@ void *swifthal_spi_open(int id,
     struct swifthal_spi *spi;
     int err;
 
-    spi = swifthal_spi_open_ex(id, speed, operation,
-                               dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
+    spi = swifthal_spi_open_ex(
+        id, speed, operation,
+        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
     if (spi == NULL)
         return NULL;
 
@@ -193,11 +195,33 @@ int swifthal_spi_close(void *arg) {
             dispatch_io_close(spi->channel, DISPATCH_IO_STOP);
             dispatch_release(spi->channel);
         }
+        if (spi->data_avail)
+            swifthal_gpio_close(spi->data_avail);
         free(spi);
         return 0;
     }
 
     return -EINVAL;
+}
+
+int swifthal_spi_set_data_available(void *arg, int data_avail) {
+    struct swifthal_spi *spi = arg;
+
+    if (spi == NULL)
+        return -EINVAL;
+
+    if (data_avail == -1) {
+        int err = swifthal_gpio_close(spi->data_avail);
+        if (err == 0)
+            spi->data_avail = NULL;
+    }
+
+    spi->data_avail = swifthal_gpio_open(data_avail, SWIFT_GPIO_DIRECTION_IN,
+                                         SWIFT_GPIO_MODE_PULL_NONE);
+    if (spi->data_avail == NULL)
+        return EINVAL;
+
+    return 0;
 }
 
 int swifthal_spi_config(void *arg, int speed, unsigned short operation) {

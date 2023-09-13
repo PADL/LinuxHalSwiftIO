@@ -31,13 +31,28 @@ public actor AsyncSPI: CustomStringConvertible {
         "\(type(of: self))(spi: \(spi), blockSize: \(blockSize))"
     }
 
-    public init(with spi: SPI, blockSize: Int? = nil) {
+    // FIXME: move data available pin into SPI library
+    public init(with spi: SPI, blockSize: Int? = nil, dataAvailable: Int? = nil) throws {
         self.spi = spi
-        swifthal_spi_async_enable(spi.obj)
+
+        let result = nothingOrErrno(swifthal_spi_async_enable(spi.obj))
+        if case let .failure(error) = result {
+            throw error
+        }
+
         if let blockSize {
             self.blockSize = blockSize
         } else {
             self.blockSize = 1
+        }
+
+        if let dataAvailable, dataAvailable != -1 {
+            let result = nothingOrErrno(
+                swifthal_spi_set_data_available(self.spi.obj, CInt(dataAvailable))
+            )
+            if case let .failure(error) = result {
+                throw error
+            }
         }
 
         Task {

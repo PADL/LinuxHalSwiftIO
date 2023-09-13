@@ -31,7 +31,7 @@
 #include <sys/ioctl.h>
 #include <dispatch/dispatch.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 struct swifthal_uart {
     dispatch_fd_t fd;

@@ -24,7 +24,7 @@
 #include <sys/sysinfo.h>
 #endif
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 void swifthal_ms_sleep(int ms) { usleep(ms * 1000); }
 

@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <limits.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 void *swifthal_adc_open(int id) { return NULL; }
 

@@ -21,7 +21,7 @@
 #include <limits.h>
 #include <time.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 struct swifthal_counter {
     clockid_t clockid;
@@ -86,9 +86,7 @@ unsigned int swifthal_counter_us_to_ticks(void *arg,
     return 0;
 }
 
-unsigned int swifthal_counter_get_max_top_value(void *arg) {
-    return UINT_MAX;
-}
+unsigned int swifthal_counter_get_max_top_value(void *arg) { return UINT_MAX; }
 
 int swifthal_counter_set_channel_alarm(void *arg, unsigned int ticks) {
     return -ENOSYS;

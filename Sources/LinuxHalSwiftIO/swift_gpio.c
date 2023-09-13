@@ -22,10 +22,7 @@
 #include <gpiod.h>
 #endif
 
-#include "swift_hal.h"
-
-#define SWIFTHAL_GPIO_CONSUMER "SwiftIO"
-#define SWIFTHAL_GPIOCHIP "gpiochip0" // FIXME: make configurable
+#include "swift_hal_internal.h"
 
 struct swifthal_gpio {
 #ifdef __linux__
@@ -39,6 +36,13 @@ struct swifthal_gpio {
 void *swifthal_gpio_open(int id,
                          swift_gpio_direction_t direction,
                          swift_gpio_mode_t io_mode) {
+    return swifthal_gpio__open(id, SWIFTHAL_GPIOCHIP, direction, io_mode);
+}
+
+void *swifthal_gpio__open(int id,
+                          const char *chip,
+                          swift_gpio_direction_t direction,
+                          swift_gpio_mode_t io_mode) {
     struct swifthal_gpio *gpio;
 
     gpio = calloc(1, sizeof(*gpio));
@@ -46,7 +50,7 @@ void *swifthal_gpio_open(int id,
         return NULL;
 
 #ifdef __linux__
-    gpio->chip = gpiod_chip_open_by_name(SWIFTHAL_GPIOCHIP);
+    gpio->chip = gpiod_chip_open_by_name(chip);
     if (gpio->chip == NULL) {
         swifthal_gpio_close(gpio);
         return NULL;
@@ -219,15 +223,21 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
 #endif
 }
 
-int swifthal_gpio_interrupt_callback_install(void *arg,
-                                             const void *param,
-                                             void (*callback)(const void *)) {
+int swifthal_gpio__set_handler(void *arg, void (^handler)(void)) {
     struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL || gpio->source == NULL)
         return -EINVAL;
 
-    dispatch_source_set_event_handler(gpio->source, ^{
+    dispatch_source_set_event_handler(gpio->source, handler);
+
+    return 0;
+}
+
+int swifthal_gpio_interrupt_callback_install(void *arg,
+                                             const void *param,
+                                             void (*callback)(const void *)) {
+    return swifthal_gpio__set_handler(arg, ^{
 #if 0
         struct gpiod_line_event event;
         dispatch_fd_t fd = dispatch_source_get_handle(gpio->source);
@@ -243,8 +253,6 @@ int swifthal_gpio_interrupt_callback_install(void *arg,
 #endif
       callback(param);
     });
-
-    return 0;
 }
 
 int swifthal_gpio_interrupt_callback_uninstall(void *arg) {

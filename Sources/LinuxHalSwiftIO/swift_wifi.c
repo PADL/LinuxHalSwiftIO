@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 int swift_wifi_scan(swift_wifi_scan_result_t *results, int num) {
     return -ENOSYS;

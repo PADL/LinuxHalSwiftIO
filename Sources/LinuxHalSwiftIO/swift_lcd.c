@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 void *swifthal_lcd_open(const swift_lcd_panel_param_t *param) { return NULL; }
 

@@ -30,7 +30,7 @@
 #endif
 #include <stdatomic.h>
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 void swifthal_os_task_yield(void) { sched_yield(); }
 

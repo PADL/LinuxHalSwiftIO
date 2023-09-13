@@ -30,7 +30,7 @@
 #include <sys/mount.h>
 #endif
 
-#include "swift_hal.h"
+#include "swift_hal_internal.h"
 
 char *swifthal_mount_point_get(void) { return "/"; }
 
