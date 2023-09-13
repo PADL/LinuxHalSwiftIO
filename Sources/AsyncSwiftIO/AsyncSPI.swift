@@ -46,15 +46,6 @@ public actor AsyncSPI: CustomStringConvertible {
             self.blockSize = 1
         }
 
-        if let dataAvailable, dataAvailable != -1 {
-            let result = nothingOrErrno(
-                swifthal_spi_set_data_available(self.spi.obj, CInt(dataAvailable))
-            )
-            if case let .failure(error) = result {
-                throw error
-            }
-        }
-
         Task {
             await readChannelRun()
             try await writeChannelRun()

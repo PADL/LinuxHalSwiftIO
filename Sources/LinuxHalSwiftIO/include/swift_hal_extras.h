@@ -53,9 +53,6 @@ void *_Nullable swifthal_spi_open_ex(int id,
 
 int swifthal_spi_async_enable(void *_Nonnull spi);
 
-// set data available GPIO pin (-1 to disable)
-int swifthal_spi_set_data_available(void *_Nonnull spi, int data_avail);
-
 int swifthal_spi_async_read_with_handler(
     void *_Nonnull spi,
     size_t length,
