@@ -25,7 +25,7 @@ public actor AsyncSPI: CustomStringConvertible {
     private let spi: SPI
     private let blockSize: Int
     private let dataAvailableInput: DigitalIn?
-
+    public private(set) var dataAvailable: Bool = true
     public private(set) var readChannel = AsyncThrowingChannel<[UInt8], Error>()
     private var writeChannel = AsyncChannel<[UInt8]>()
 
@@ -34,6 +34,12 @@ public actor AsyncSPI: CustomStringConvertible {
             return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize), dataAvailableInput: \(dataAvailableInput))"
         } else {
             return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize))"
+        }
+    }
+
+    private func dataAvailableInterrupt() {
+        if let dataAvailableInput {
+            dataAvailable = dataAvailableInput.read()
         }
     }
 
@@ -46,6 +52,14 @@ public actor AsyncSPI: CustomStringConvertible {
         let result = nothingOrErrno(swifthal_spi_async_enable(spi.obj))
         if case let .failure(error) = result {
             throw error
+        }
+
+        if let dataAvailableInput {
+            dataAvailableInput.setInterrupt(.rising) {
+                Task {
+                    await self.dataAvailableInterrupt()
+                }
+            }
         }
 
         Task {
@@ -96,17 +110,28 @@ public actor AsyncSPI: CustomStringConvertible {
         await writeChannel.send(Array(data[0..<writeLength]))
     }
 
-    private func readChannelRun() {
-        swifthal_spi_async_read_with_handler(spi.obj, blockSize) { _, data, count, error in
-            Task {
-                guard error == 0 else {
-                    self.readChannel.fail(Errno(error))
-                    return
-                }
-
-                let bytes = Array(UnsafeBufferPointer<UInt8>(start: data, count: count))
+    private nonisolated func asyncReadHandler(_ bytes: [UInt8]?, _ error: CInt) {
+        Task {
+            guard error == 0 else {
+                await self.readChannel.fail(Errno(error))
+                return
+            }
+            if let bytes {
                 await self.readChannel.send(bytes)
             }
+        }
+    }
+
+    private func readChannelRun() {
+        swifthal_spi_async_read_with_handler(spi.obj, blockSize) { _, data, count, error in
+            let bytes: [UInt8]?
+
+            if let data {
+                bytes = Array(UnsafeBufferPointer<UInt8>(start: data, count: count))
+            } else {
+                bytes = nil
+            }
+            self.asyncReadHandler(bytes, error)
             return true // FIXME: check this
         }
     }
@@ -129,7 +154,7 @@ public actor AsyncSPI: CustomStringConvertible {
             memcpy(&buffer[bytesRead], data, data.count)
             bytesRead += data.count
 
-            if bytesRead == readLength {
+            if bytesRead == readLength || !dataAvailable {
                 break
             }
         }

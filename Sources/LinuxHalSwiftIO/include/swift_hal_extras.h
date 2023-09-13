@@ -22,8 +22,6 @@
 /// GPIO
 ///
 
-int swifthal_gpio_set_handler(void *_Nonnull spi, void (^_Nonnull handler)(void));
-
 ///
 /// SPI
 ///
