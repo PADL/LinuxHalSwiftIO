@@ -24,26 +24,28 @@ import SwiftIO
 public actor AsyncSPI: CustomStringConvertible {
     private let spi: SPI
     private let blockSize: Int
+    private let dataAvailableInput: DigitalIn?
+
     public private(set) var readChannel = AsyncThrowingChannel<[UInt8], Error>()
     private var writeChannel = AsyncChannel<[UInt8]>()
 
     public nonisolated var description: String {
-        "\(type(of: self))(spi: \(spi), blockSize: \(blockSize))"
+        if let dataAvailableInput {
+            return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize), dataAvailableInput: \(dataAvailableInput))"
+        } else {
+            return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize))"
+        }
     }
 
     // FIXME: move data available pin into SPI library
-    public init(with spi: SPI, blockSize: Int? = nil, dataAvailable: Int? = nil) throws {
+    public init(with spi: SPI, blockSize: Int = 1, dataAvailableInput: DigitalIn? = nil) throws {
         self.spi = spi
+        self.blockSize = blockSize
+        self.dataAvailableInput = dataAvailableInput
 
         let result = nothingOrErrno(swifthal_spi_async_enable(spi.obj))
         if case let .failure(error) = result {
             throw error
-        }
-
-        if let blockSize {
-            self.blockSize = blockSize
-        } else {
-            self.blockSize = 1
         }
 
         Task {
