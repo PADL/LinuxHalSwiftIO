@@ -19,31 +19,17 @@
 #include <dispatch/dispatch.h>
 
 ///
+/// GPIO
+///
+
+int swifthal_gpio_set_handler(void *_Nonnull spi, void (^_Nonnull handler)(void));
+
+///
 /// SPI
 ///
 
 #ifndef SWIFT_SPI_TRANSFER_8_BITS
 #define SWIFT_SPI_TRANSFER_8_BITS (1 << 5) // undocumented
-#endif
-
-#ifndef MSEC_PER_SEC
-#define MSEC_PER_SEC (1000)
-#endif
-
-#ifndef USEC_PER_MSEC
-#define USEC_PER_MSEC (1000)
-#endif
-
-#ifndef NSEC_PER_USEC
-#define NSEC_PER_USEC (1000)
-#endif
-
-#ifndef NSEC_PER_MSEC
-#define NSEC_PER_MSEC (NSEC_PER_USEC * USEC_PER_MSEC)
-#endif
-
-#ifndef USEC_PER_SEC
-#define USEC_PER_SEC (USEC_PER_MSEC * MSEC_PER_SEC)
 #endif
 
 void *_Nullable swifthal_spi_open_ex(int id,

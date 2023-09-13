@@ -223,7 +223,7 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
 #endif
 }
 
-static int swifthal_gpio__set_handler(void *arg, void (^handler)(void)) {
+int swifthal_gpio_set_handler(void *arg, void (^handler)(void)) {
     struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL || gpio->source == NULL)
@@ -257,7 +257,7 @@ int swifthal_gpio__event_read(void *arg, bool *rising_edge) {
 int swifthal_gpio_interrupt_callback_install(void *arg,
                                              const void *param,
                                              void (*callback)(const void *)) {
-    return swifthal_gpio__set_handler(arg, ^{
+    return swifthal_gpio_set_handler(arg, ^{
 #if 0
         struct gpiod_line_event event;
         dispatch_fd_t fd = dispatch_source_get_handle(gpio->source);
