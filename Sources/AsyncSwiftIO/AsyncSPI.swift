@@ -123,7 +123,7 @@ public actor AsyncSPI: CustomStringConvertible {
     }
 
     private func readChannelRun() {
-        swifthal_spi_async_read_with_handler(spi.obj, blockSize) { _, data, count, error in
+        swifthal_spi_async_read_with_handler(spi.obj, blockSize) { done, data, count, error in
             let bytes: [UInt8]?
 
             if let data {
@@ -132,7 +132,7 @@ public actor AsyncSPI: CustomStringConvertible {
                 bytes = nil
             }
             self.asyncReadHandler(bytes, error)
-            return true // FIXME: check this
+            return done
         }
     }
 
