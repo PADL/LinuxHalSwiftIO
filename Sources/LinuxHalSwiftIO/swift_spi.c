@@ -287,19 +287,21 @@ int swifthal_spi_transceive(void *arg,
                             int r_length) {
 #ifdef __linux__
     struct swifthal_spi *spi = arg;
-    struct spi_ioc_transfer xfer;
+    struct spi_ioc_transfer xfer[2];
 
     if (spi == NULL || w_buf == NULL || r_buf == NULL)
         return -EINVAL;
 
-    memset(&xfer, 0, sizeof(xfer));
+    memset(xfer, 0, sizeof(xfer));
     memset(r_buf, 0, r_length);
 
-    xfer.tx_buf = (uintptr_t)w_buf;
-    xfer.rx_buf = (uintptr_t)r_buf;
-    xfer.len = MIN(w_length, r_length); // FIXME: fix API
+    xfer[0].tx_buf = (uintptr_t)w_buf;
+    xfer[0].len = w_length;
 
-    if (ioctl(spi->fd, SPI_IOC_MESSAGE(1), &xfer) < 0)
+    xfer[1].rx_buf = (uintptr_t)r_buf;
+    xfer[1].len = r_length;
+
+    if (ioctl(spi->fd, SPI_IOC_MESSAGE(2), xfer) < 0)
         return -errno;
 
     return 0;
