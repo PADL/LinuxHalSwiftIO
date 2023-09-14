@@ -25,6 +25,8 @@
 #include "swift_hal_internal.h"
 
 struct swifthal_gpio {
+    swift_gpio_direction_t direction;
+    swift_gpio_mode_t io_mode;
 #ifdef __linux__
     struct gpiod_chip *chip;
     struct gpiod_line *line;
@@ -90,6 +92,27 @@ int swifthal_gpio_close(void *arg) {
     return -EINVAL;
 }
 
+static int swifthal_gpio__io_mode_flags(swift_gpio_mode_t io_mode, int *flags) {
+    switch (io_mode) {
+    case SWIFT_GPIO_MODE_PULL_UP:
+        *flags |= GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_UP;
+        break;
+    case SWIFT_GPIO_MODE_PULL_DOWN:
+        *flags |= GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_DOWN;
+        break;
+    case SWIFT_GPIO_MODE_PULL_NONE:
+        *flags |= GPIOD_LINE_REQUEST_FLAG_BIAS_DISABLE;
+        break;
+    case SWIFT_GPIO_MODE_OPEN_DRAIN:
+        *flags |= GPIOD_LINE_REQUEST_FLAG_OPEN_DRAIN;
+        break;
+    default:
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
 int swifthal_gpio_config(void *arg,
                          swift_gpio_direction_t direction,
                          swift_gpio_mode_t io_mode) {
@@ -109,6 +132,8 @@ int swifthal_gpio_config(void *arg,
         gpio->source = NULL;
     }
 
+    lrc.request_type = GPIOD_LINE_REQUEST_EVENT_BOTH_EDGES;
+
     switch (direction) {
     case SWIFT_GPIO_DIRECTION_OUT:
         lrc.request_type = GPIOD_LINE_REQUEST_DIRECTION_OUTPUT;
@@ -119,6 +144,10 @@ int swifthal_gpio_config(void *arg,
     default:
         return -EINVAL;
     }
+
+    err = swifthal_gpio__io_mode_flags(io_mode, &lrc.flags);
+    if (err)
+        return err;
 
     switch (io_mode) {
     case SWIFT_GPIO_MODE_PULL_UP:
@@ -140,12 +169,8 @@ int swifthal_gpio_config(void *arg,
     if (gpiod_line_request(gpio->line, &lrc, 0) < 0)
         return -errno;
 
-    gpio->source = dispatch_source_create(
-        direction == SWIFT_GPIO_DIRECTION_OUT ? DISPATCH_SOURCE_TYPE_WRITE
-                                              : DISPATCH_SOURCE_TYPE_READ,
-        gpiod_line_event_get_fd(gpio->line), 0, gpio->queue);
-    if (gpio->source == NULL)
-        return -ENOMEM;
+    gpio->direction = direction;
+    gpio->io_mode = io_mode;
 
     return 0;
 #else
@@ -191,6 +216,7 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
     int err;
     struct swifthal_gpio *gpio = arg;
     struct gpiod_line_request_config lrc;
+    dispatch_fd_t fd;
 
     if (gpio == NULL)
         return -EINVAL;
@@ -214,8 +240,23 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
         return -EINVAL;
     }
 
+    err = swifthal_gpio__io_mode_flags(gpio->io_mode, &lrc.flags);
+    if (err)
+        return err;
+
     if (gpiod_line_request(gpio->line, &lrc, 0) < 0)
         return -errno;
+
+    fd = gpiod_line_event_get_fd(gpio->line);
+    if (fd < 0)
+        return -errno;
+
+    gpio->source = dispatch_source_create(
+        gpio->direction == SWIFT_GPIO_DIRECTION_OUT ? DISPATCH_SOURCE_TYPE_WRITE
+                                                    : DISPATCH_SOURCE_TYPE_READ,
+        fd, 0, gpio->queue);
+    if (gpio->source == NULL)
+        return -ENOMEM;
 
     return 0;
 #else
