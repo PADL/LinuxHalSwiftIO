@@ -25,9 +25,7 @@ public actor AsyncSPI: CustomStringConvertible {
     private let spi: SPI
     private let blockSize: Int
     private let dataAvailableInput: DigitalIn?
-    public private(set) var dataAvailable: Bool = true
-    public private(set) var readChannel = AsyncThrowingChannel<[UInt8], Error>()
-    private var writeChannel = AsyncChannel<[UInt8]>()
+    private var dataAvailable: Bool = true
 
     public nonisolated var description: String {
         if let dataAvailableInput {
@@ -43,7 +41,7 @@ public actor AsyncSPI: CustomStringConvertible {
         }
     }
 
-    // FIXME: move data available pin into SPI library
+    // TODO: move data available pin into SPI library
     public init(with spi: SPI, blockSize: Int = 1, dataAvailableInput: DigitalIn? = nil) throws {
         self.spi = spi
         self.blockSize = blockSize
@@ -56,109 +54,61 @@ public actor AsyncSPI: CustomStringConvertible {
 
         if let dataAvailableInput {
             dataAvailableInput.setInterrupt(.rising) {
+                debugPrint("got interrupt on rising edge")
                 Task {
                     await self.dataAvailableInterrupt()
                 }
             }
         }
-
-        Task {
-            await readChannelRun()
-            try await writeChannelRun()
-        }
     }
 
-    deinit {
-        writeChannel.finish()
-        readChannel.finish()
-    }
-
-    private func writeChannelRun() async throws {
-        for await data in writeChannel {
-            try asyncWrite(data)
-        }
-    }
-
-    private func asyncWrite(_ data: [UInt8]) throws {
-        let result = data.withUnsafeBytes { bytes in
-            nothingOrErrno(
-                swifthal_spi_async_write_with_handler(
-                    self.spi.obj,
-                    bytes.baseAddress!,
-                    bytes.count
-                ) { _, _, _, _ in true }
-            )
-        }
-
-        if case let .failure(error) = result {
-            throw error
-        }
-    }
-
-    public func write(_ data: [UInt8], count: Int? = nil) async throws {
-        var writeLength = 0
-        let result = validateLength(data, count: count, length: &writeLength)
-
-        if case let .failure(error) = result {
-            throw error
-        }
-
-        if writeLength % blockSize != 0 {
+    public func write(_ data: [UInt8]) async throws -> Int {
+        if data.count % blockSize != 0 {
             throw Errno.invalidArgument
         }
 
-        await writeChannel.send(Array(data[0..<writeLength]))
-    }
-
-    private nonisolated func asyncReadHandler(_ bytes: [UInt8]?, _ error: CInt) {
-        Task {
-            guard error == 0 else {
-                await self.readChannel.fail(Errno(error))
-                return
-            }
-            if let bytes {
-                await self.readChannel.send(bytes)
+        return try await withCheckedThrowingContinuation { continuation in
+            data.withUnsafeBytes { bytes in
+                let result = nothingOrErrno(
+                    swifthal_spi_async_write_with_handler(
+                        spi.obj,
+                        bytes.baseAddress!,
+                        bytes.count
+                    ) { _, _, _, _ in
+                        continuation.resume(returning: data.count)
+                        return true
+                    }
+                )
+                if case let .failure(error) = result {
+                    continuation.resume(throwing: error)
+                    return
+                }
             }
         }
     }
 
-    private func readChannelRun() {
-        swifthal_spi_async_read_with_handler(spi.obj, blockSize) { done, data, count, error in
-            let bytes: [UInt8]?
-
-            if let data {
-                bytes = Array(UnsafeBufferPointer<UInt8>(start: data, count: count))
-            } else {
-                bytes = nil
-            }
-            self.asyncReadHandler(bytes, error)
-            return done
-        }
-    }
-
-    public func read(into buffer: inout [UInt8], count: Int? = nil) async throws -> Int {
-        var readLength = 0
-        let result = validateLength(buffer, count: count, length: &readLength)
-
-        if case let .failure(error) = result {
-            throw error
-        }
-
-        if readLength % blockSize != 0 {
+    public func read(_ count: Int) async throws -> [UInt8] {
+        if count % blockSize != 0 {
             throw Errno.invalidArgument
         }
 
-        var bytesRead = 0
+        return try await withCheckedThrowingContinuation { continuation in
+            swifthal_spi_async_read_with_handler(spi.obj, count) { _, data, count, error in
+                guard error == 0 else {
+                    continuation.resume(throwing: Errno(error))
+                    return true
+                }
 
-        for try await data in readChannel {
-            memcpy(&buffer[bytesRead], data, data.count)
-            bytesRead += data.count
+                let bytes: [UInt8]
 
-            if bytesRead == readLength || !dataAvailable {
-                break
+                if let data {
+                    bytes = Array(UnsafeBufferPointer<UInt8>(start: data, count: count))
+                } else {
+                    bytes = []
+                }
+                continuation.resume(returning: bytes)
+                return true
             }
         }
-
-        return bytesRead
     }
 }
