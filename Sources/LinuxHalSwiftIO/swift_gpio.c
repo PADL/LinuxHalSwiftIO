@@ -166,6 +166,8 @@ int swifthal_gpio_config(void *arg,
         return -EINVAL;
     }
 
+    gpiod_line_release(gpio->line);
+
     if (gpiod_line_request(gpio->line, &lrc, 0) < 0)
         return -errno;
 
@@ -243,6 +245,8 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
     err = swifthal_gpio__io_mode_flags(gpio->io_mode, &lrc.flags);
     if (err)
         return err;
+
+    gpiod_line_release(gpio->line);
 
     if (gpiod_line_request(gpio->line, &lrc, 0) < 0)
         return -errno;
