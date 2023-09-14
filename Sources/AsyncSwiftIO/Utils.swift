@@ -15,16 +15,16 @@ import CSwiftIO
 import SwiftIO
 
 @inlinable
-internal func getClassPointer<T: AnyObject>(_ obj: T) -> UnsafeRawPointer {
+func getClassPointer<T: AnyObject>(_ obj: T) -> UnsafeRawPointer {
     UnsafeRawPointer(Unmanaged.passUnretained(obj).toOpaque())
 }
 
-internal func system_strerror(_ __errnum: Int32) -> UnsafeMutablePointer<Int8>! {
+func system_strerror(_ __errnum: Int32) -> UnsafeMutablePointer<Int8>! {
     strerror(__errnum)
 }
 
 @inlinable
-internal func validateLength(
+func validateLength(
     _ array: [UInt8],
     count: Int?,
     length: inout Int
@@ -43,7 +43,7 @@ internal func validateLength(
 }
 
 @inlinable
-internal func validateLength(
+func validateLength(
     _ buffer: UnsafeMutableRawBufferPointer,
     count: Int?,
     length: inout Int
@@ -62,7 +62,7 @@ internal func validateLength(
 }
 
 @inlinable
-internal func validateLength(
+func validateLength(
     _ buffer: UnsafeRawBufferPointer,
     count: Int?,
     length: inout Int
