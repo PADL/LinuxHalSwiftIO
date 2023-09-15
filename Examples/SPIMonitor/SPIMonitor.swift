@@ -28,10 +28,6 @@ public enum SPIDumper {
 
         Task {
             debugPrint("Initialized async SPI handle \(asyncSpi)...")
-
-            for try await data in await asyncSpi.readChannel {
-                debugPrint(Data(data).hexDescription)
-            }
         }
         RunLoop.main.run()
     }
