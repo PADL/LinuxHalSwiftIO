@@ -54,7 +54,6 @@ public actor AsyncSPI: CustomStringConvertible {
 
         if let dataAvailableInput {
             dataAvailableInput.setInterrupt(.rising) {
-                debugPrint("got interrupt on rising edge")
                 Task {
                     await self.dataAvailableInterrupt()
                 }
