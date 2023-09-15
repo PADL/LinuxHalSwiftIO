@@ -93,6 +93,7 @@ int swifthal_gpio_close(void *arg) {
 }
 
 static int swifthal_gpio__io_mode_flags(swift_gpio_mode_t io_mode, int *flags) {
+#ifdef __linux__
     switch (io_mode) {
     case SWIFT_GPIO_MODE_PULL_UP:
         *flags |= GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_UP;
@@ -111,6 +112,9 @@ static int swifthal_gpio__io_mode_flags(swift_gpio_mode_t io_mode, int *flags) {
     }
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_gpio_config(void *arg,
