@@ -10,6 +10,15 @@
       }
     },
     {
+      "identity" : "ioringswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/PADL/IORingSwift.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "2e1768fcc980f99d7a0279e072a46ddcac864266"
+      }
+    },
+    {
       "identity" : "swift-async-algorithms",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-async-algorithms",

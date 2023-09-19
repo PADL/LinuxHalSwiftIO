@@ -3,6 +3,23 @@
 
 import PackageDescription
 
+func tryGuessSwiftLibRoot() -> String {
+    let task = Process()
+    task.executableURL = URL(fileURLWithPath: "/bin/sh")
+    task.arguments = ["-c", "which swift"]
+    task.standardOutput = Pipe()
+    do {
+        try task.run()
+        let outputData = (task.standardOutput as! Pipe).fileHandleForReading.readDataToEndOfFile()
+        let path = URL(fileURLWithPath: String(decoding: outputData, as: UTF8.self))
+        return path.deletingLastPathComponent().path + "/../lib/swift"
+    } catch {
+        return "/usr/lib/swift"
+    }
+}
+
+let SwiftLibRoot = tryGuessSwiftLibRoot()
+
 let package = Package(
     name: "LinuxHalSwiftIO",
     platforms: [
@@ -25,6 +42,7 @@ let package = Package(
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         .package(url: "https://github.com/PADL/SwiftIO.git", branch: "linux-hal"),
+        .package(url: "https://github.com/PADL/IORingSwift.git", branch: "main"),
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "0.1.0"),
         .package(url: "https://github.com/lhoward/AsyncExtensions", branch: "linux"),
     ],
@@ -35,7 +53,7 @@ let package = Package(
                 .product(name: "CSwiftIO", package: "SwiftIO"),
             ],
             cSettings: [
-                .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
+                .unsafeFlags(["-I", SwiftLibRoot]),
             ],
             linkerSettings: [
                 .linkedLibrary("gpiod", .when(platforms: [.linux])),
@@ -50,7 +68,7 @@ let package = Package(
                 "LinuxHalSwiftIO",
             ],
             cSettings: [
-                .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
+                .unsafeFlags(["-I", SwiftLibRoot])
             ]
         ),
         .executableTarget(
