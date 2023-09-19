@@ -68,7 +68,7 @@ let package = Package(
                 "LinuxHalSwiftIO",
             ],
             cSettings: [
-                .unsafeFlags(["-I", SwiftLibRoot])
+                .unsafeFlags(["-I", SwiftLibRoot]),
             ]
         ),
         .executableTarget(
