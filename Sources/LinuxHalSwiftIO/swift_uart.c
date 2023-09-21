@@ -34,7 +34,7 @@
 #include "swift_hal_internal.h"
 
 struct swifthal_uart {
-    dispatch_fd_t fd;
+    int fd;
     dispatch_queue_t queue;
     dispatch_io_t channel;
     size_t read_buf_len;
@@ -61,19 +61,6 @@ static int swifthal_uart__enable_nbio(struct swifthal_uart *uart) {
     return 0;
 }
 
-static int swifthal_uart__io_create(struct swifthal_uart *uart) {
-    int err;
-
-    uart->channel =
-        dispatch_io_create(DISPATCH_IO_STREAM, uart->fd, uart->queue,
-                           ^(int error){
-                           });
-    if (uart->channel == NULL)
-        return -ENOMEM;
-
-    return 0;
-}
-
 void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
     struct swifthal_uart *uart;
     char device[PATH_MAX + 1];
@@ -91,8 +78,6 @@ void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
         swifthal_uart_close(uart);
         return NULL;
     }
-
-    uart->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
     uart->read_buf_len = (int)cfg->read_buf_len;
 
@@ -122,10 +107,6 @@ int swifthal_uart_close(void *arg) {
     if (uart) {
         if (uart->fd != -1)
             close(uart->fd);
-        if (uart->channel) {
-            dispatch_io_close(uart->channel, DISPATCH_IO_STOP);
-            dispatch_release(uart->channel);
-        }
 
         free(uart);
         return 0;
@@ -474,85 +455,11 @@ int swifthal_uart_buffer_clear(void *arg) {
 
 int swifthal_uart_dev_number_get(void) { return 0; }
 
-int swifthal_uart_async_enable(void *arg) {
+int swifhtal_uart_get_fd(void *arg) {
     struct swifthal_uart *uart = arg;
 
     if (uart == NULL)
         return -EINVAL;
 
-    if (uart->channel)
-        return -EEXIST;
-
-    return swifthal_uart__io_create(arg);
-}
-
-int swifthal_uart_async_read_with_handler(
-    void *arg,
-    size_t length,
-    bool (^handler)(bool done, const uint8_t *data, size_t count, int error)) {
-    struct swifthal_uart *uart = arg;
-
-    if (uart == NULL)
-        return EINVAL;
-
-    dispatch_io_read(
-        uart->channel, 0, length, uart->queue,
-        ^(bool done, dispatch_data_t data, int error) {
-          if (data == NULL) {
-              handler(done, NULL, 0, error);
-              return;
-          }
-          dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
-                                      const void *loc, size_t size) {
-            bool done2;
-
-            if (done)
-                done2 = dispatch_data_get_size(data) == offset + size;
-            else
-                done2 = false;
-            return handler(done2, loc, size, error);
-          });
-        });
-
-    return 0;
-}
-
-int swifthal_uart_async_write_with_handler(
-    void *arg,
-    const uint8_t *buffer,
-    size_t length,
-    bool (^handler)(bool done, const uint8_t *data, size_t count, int error)) {
-    struct swifthal_uart *uart = arg;
-    dispatch_data_t data;
-
-    if (uart == NULL)
-        return EINVAL;
-
-    data = dispatch_data_create(buffer, length, uart->queue,
-                                DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    if (data == NULL)
-        return -ENOMEM;
-
-    dispatch_io_write(
-        uart->channel, 0, data, uart->queue,
-        ^(bool done, dispatch_data_t data, int error) {
-          if (data == NULL) {
-              handler(done, NULL, 0, error);
-              return;
-          }
-          dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
-                                      const void *loc, size_t size) {
-            bool done2;
-
-            if (done)
-                done2 = dispatch_data_get_size(data) == offset + size;
-            else
-                done2 = false;
-            return handler(done2, loc, size, error);
-          });
-        });
-
-    dispatch_release(data);
-
-    return 0;
+    return uart->fd;
 }

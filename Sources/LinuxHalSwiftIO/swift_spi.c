@@ -31,47 +31,12 @@
 #include "swift_hal.h"
 
 struct swifthal_spi {
-    dispatch_fd_t fd;
+    int fd;
     uint32_t speed_old;
     uint16_t operation_old;
     void (*w_notify)(void *);
     void (*r_notify)(void *);
-    dispatch_queue_t queue;
-    dispatch_io_t channel;
 };
-
-// FIXME is async I/O actually supported by the Linux SPI subsystems? appears
-// not
-static int swifthal_spi__enable_nbio(struct swifthal_spi *spi) {
-    int flags = fcntl(spi->fd, F_GETFL, 0);
-    if ((flags & O_NONBLOCK) == 0) {
-        if (fcntl(spi->fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-            fprintf(
-                stderr,
-                "LinuxHalSwiftIO: failed to enable non-blocking I/O on SPI fd "
-                "%d: %m\n",
-                spi->fd);
-            return -errno;
-        }
-    }
-    return 0;
-}
-
-static int swifthal_spi__io_create(struct swifthal_spi *spi) {
-    int err;
-
-    err = swifthal_spi__enable_nbio(spi);
-    if (err < 0)
-        return err;
-
-    spi->channel = dispatch_io_create(DISPATCH_IO_STREAM, spi->fd, spi->queue,
-                                      ^(int error){
-                                      });
-    if (spi->channel == NULL)
-        return -ENOMEM;
-
-    return 0;
-}
 
 static int swifthal_spi__read_config(struct swifthal_spi *spi,
                                      uint32_t *speed,
@@ -118,36 +83,10 @@ static int swifthal_spi__read_config(struct swifthal_spi *spi,
 }
 
 void *swifthal_spi_open(int id,
-                        int speed,
-                        unsigned short operation,
-                        void (*w_notify)(void *),
-                        void (*r_notify)(void *)) {
-    struct swifthal_spi *spi;
-    int err;
-
-    spi = swifthal_spi_open_ex(id, speed, operation,
-                               dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
-    if (spi == NULL)
-        return NULL;
-
-    if (w_notify || r_notify) {
-        err = swifthal_spi__io_create(spi);
-        if (err) {
-            swifthal_spi_close(spi);
-            return NULL;
-        }
-
-        spi->w_notify = w_notify;
-        spi->r_notify = r_notify;
-    }
-
-    return spi;
-}
-
-void *swifthal_spi_open_ex(int id,
                            int speed,
                            unsigned short operation,
-                           dispatch_queue_t queue) {
+    void (*w_notify)(void *),
+                        void (*r_notify)(void *)) {
     struct swifthal_spi *spi;
     char device[PATH_MAX + 1];
     int err;
@@ -165,12 +104,8 @@ void *swifthal_spi_open_ex(int id,
         return NULL;
     }
 
-    dispatch_retain(queue);
-    spi->queue = queue;
-
     // save previous configuration so we can restore it
-    if (swifthal_spi__read_config(spi, &spi->speed_old, &spi->operation_old) <
-            0 ||
+    if (swifthal_spi__read_config(spi, &spi->speed_old, &spi->operation_old) < 0 ||
         swifthal_spi_config(spi, speed, operation) < 0) {
         swifthal_spi_close(spi);
         return NULL;
@@ -187,12 +122,6 @@ int swifthal_spi_close(void *arg) {
             (void)swifthal_spi_config(spi, spi->speed_old, spi->operation_old);
         if (spi->fd != -1)
             close(spi->fd);
-        if (spi->queue)
-            dispatch_release(spi->queue);
-        if (spi->channel) {
-            dispatch_io_close(spi->channel, DISPATCH_IO_STOP);
-            dispatch_release(spi->channel);
-        }
         free(spi);
         return 0;
     }
@@ -310,134 +239,22 @@ int swifthal_spi_transceive(void *arg,
 #endif
 }
 
-int swifthal_spi_async_enable(void *arg) {
-    struct swifthal_spi *spi = arg;
-
-    if (spi == NULL)
-        return -EINVAL;
-
-    if (spi->channel)
-        return -EEXIST;
-
-    return swifthal_spi__io_create(arg);
-}
-
 int swifthal_spi_async_write(void *arg, const unsigned char *buf, int length) {
-    struct swifthal_spi *spi = arg;
-    dispatch_data_t data;
-
-    if (spi == NULL || spi->channel == NULL || spi->w_notify == NULL)
-        return -EINVAL;
-
-    data = dispatch_data_create(buf, length, spi->queue,
-                                DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    if (data == NULL)
-        return -ENOMEM;
-
-    dispatch_io_write(spi->channel, 0, data, spi->queue,
-                      ^(bool done, dispatch_data_t data, int error) {
-                        spi->w_notify(spi);
-                      });
-
-    dispatch_release(data);
-
-    return 0;
+    return -ENOSYS;
 }
 
 int swifthal_spi_async_read(void *arg, unsigned char *buf, int length) {
-    struct swifthal_spi *spi = arg;
-
-    if (spi == NULL || spi->channel == NULL || spi->r_notify == NULL)
-        return -EINVAL;
-
-    dispatch_io_read(spi->channel, 0, length, spi->queue,
-                     ^(bool done, dispatch_data_t data, int error) {
-                       // FIXME: this API doesn't really make sense and probably
-                       // won't work!
-                       if (error == 0) {
-                           dispatch_data_apply(
-                               data, ^(dispatch_data_t rgn, size_t offset,
-                                       const void *loc, size_t size) {
-                                 memcpy(buf + offset, loc, size);
-                                 return (bool)(offset + size == length);
-                               });
-                       }
-                       spi->r_notify(spi);
-                     });
-
-    return 0;
+    return -ENOSYS;
 }
 
 // FIXME: implement this by interrogating /sys/class/spi_master
 int swifthal_spi_dev_number_get(void) { return 0; }
 
-int swifthal_spi_async_read_with_handler(
-    void *arg,
-    size_t length,
-    bool (^handler)(bool done, const uint8_t *data, size_t count, int error)) {
+int swifthal_spi_get_fd(void *arg) {
     struct swifthal_spi *spi = arg;
 
     if (spi == NULL)
         return EINVAL;
 
-    dispatch_io_read(
-        spi->channel, 0, length, spi->queue,
-        ^(bool done, dispatch_data_t data, int error) {
-          if (data == NULL) {
-              handler(done, NULL, 0, error);
-              return;
-          }
-          dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
-                                      const void *loc, size_t size) {
-            bool done2;
-
-            if (done)
-                done2 = dispatch_data_get_size(data) == offset + size;
-            else
-                done2 = false;
-            return handler(done2, loc, size, error);
-          });
-        });
-
-    return 0;
-}
-
-int swifthal_spi_async_write_with_handler(
-    void *arg,
-    const uint8_t *buffer,
-    size_t length,
-    bool (^handler)(bool done, const uint8_t *data, size_t count, int error)) {
-    struct swifthal_spi *spi = arg;
-    dispatch_data_t data;
-
-    if (spi == NULL)
-        return EINVAL;
-
-    data = dispatch_data_create(buffer, length, spi->queue,
-                                DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    if (data == NULL)
-        return -ENOMEM;
-
-    dispatch_io_write(
-        spi->channel, 0, data, spi->queue,
-        ^(bool done, dispatch_data_t data, int error) {
-          if (data == NULL) {
-              handler(done, NULL, 0, error);
-              return;
-          }
-          dispatch_data_apply(data, ^(dispatch_data_t rgn, size_t offset,
-                                      const void *loc, size_t size) {
-            bool done2;
-
-            if (done)
-                done2 = dispatch_data_get_size(data) == offset + size;
-            else
-                done2 = false;
-            return handler(done2, loc, size, error);
-          });
-        });
-
-    dispatch_release(data);
-
-    return 0;
+    return spi->fd;
 }

@@ -32,7 +32,7 @@
 #include "swift_hal_internal.h"
 
 struct swifthal_i2c {
-    dispatch_fd_t fd;
+    int fd;
     dispatch_queue_t queue;
 };
 
@@ -151,3 +151,12 @@ int swifthal_i2c_write_read(void *arg,
 
 // FIXME: implement this by /sys/class/i2c-dev
 int swifthal_i2c_dev_number_get(void) { return 0; }
+
+int swifthal_i2c_get_fd(void *arg) {
+    struct swifthal_i2c *i2c = arg;
+
+    if (i2c == NULL)
+        return -EINVAL;
+
+    return i2c->fd;
+}

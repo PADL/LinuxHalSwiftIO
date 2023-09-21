@@ -47,11 +47,6 @@ public actor AsyncSPI: CustomStringConvertible {
         self.blockSize = blockSize
         self.dataAvailableInput = dataAvailableInput
 
-        let result = nothingOrErrno(swifthal_spi_async_enable(spi.obj))
-        if case let .failure(error) = result {
-            throw error
-        }
-
         if let dataAvailableInput {
             dataAvailableInput.setInterrupt(.rising) {
                 Task {
@@ -66,24 +61,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw Errno.invalidArgument
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            data.withUnsafeBytes { bytes in
-                let result = nothingOrErrno(
-                    swifthal_spi_async_write_with_handler(
-                        spi.obj,
-                        bytes.baseAddress!,
-                        bytes.count
-                    ) { _, _, _, _ in
-                        continuation.resume(returning: data.count)
-                        return true
-                    }
-                )
-                if case let .failure(error) = result {
-                    continuation.resume(throwing: error)
-                    return
-                }
-            }
-        }
+	return -1
     }
 
     public func read(_ count: Int) async throws -> [UInt8] {
@@ -91,23 +69,6 @@ public actor AsyncSPI: CustomStringConvertible {
             throw Errno.invalidArgument
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            swifthal_spi_async_read_with_handler(spi.obj, count) { _, data, count, error in
-                guard error == 0 else {
-                    continuation.resume(throwing: Errno(error))
-                    return true
-                }
-
-                let bytes: [UInt8]
-
-                if let data {
-                    bytes = Array(UnsafeBufferPointer<UInt8>(start: data, count: count))
-                } else {
-                    bytes = []
-                }
-                continuation.resume(returning: bytes)
-                return true
-            }
-        }
+	return []
     }
 }

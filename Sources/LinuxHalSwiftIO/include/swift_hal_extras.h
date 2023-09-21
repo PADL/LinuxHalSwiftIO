@@ -22,6 +22,14 @@
 /// GPIO
 ///
 
+int swifthal_gpio_get_fd(void * _Nonnull gpio);
+
+///
+/// I2C
+///
+
+int swifthal_i2c_get_fd(void * _Nonnull i2c);
+
 ///
 /// SPI
 ///
@@ -30,41 +38,10 @@
 #define SWIFT_SPI_TRANSFER_8_BITS (1 << 5) // undocumented
 #endif
 
-void *_Nullable swifthal_spi_open_ex(int id,
-                                     int speed,
-                                     unsigned short operation,
-                                     dispatch_queue_t _Nonnull queue);
-
-int swifthal_spi_async_enable(void *_Nonnull spi);
-
-int swifthal_spi_async_read_with_handler(
-    void *_Nonnull spi,
-    size_t length,
-    bool (^_Nonnull handler)(
-        bool done, const uint8_t *_Nullable data, size_t count, int error));
-
-int swifthal_spi_async_write_with_handler(
-    void *_Nonnull spi,
-    const uint8_t *_Nonnull buffer,
-    size_t length,
-    bool (^_Nonnull handler)(
-        bool done, const uint8_t *_Nullable data, size_t count, int error));
+int swifthal_spi_get_fd(void * _Nonnull spi);
 
 ///
 /// UART
 ///
 
-int swifthal_uart_async_enable(void *_Nonnull uart);
-
-int swifthal_uart_async_read_with_handler(
-    void *_Nonnull uart,
-    size_t length,
-    bool (^_Nonnull handler)(
-        bool done, const uint8_t *_Nullable data, size_t count, int error));
-
-int swifthal_uart_async_write_with_handler(
-    void *_Nonnull uart,
-    const uint8_t *_Nonnull buffer,
-    size_t length,
-    bool (^_Nonnull handler)(
-        bool done, const uint8_t *_Nullable data, size_t count, int error));
+int swifthal_uart_get_fd(void * _Nonnull uart);
