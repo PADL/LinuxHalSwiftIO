@@ -12,7 +12,7 @@ private struct Id: IdName {
 
 @main
 public enum SPIDumper {
-    public static func main() throws {
+    public static func main() async throws {
         var device: Int32!
 
         if CommandLine.arguments.count > 1 {
@@ -26,10 +26,12 @@ public enum SPIDumper {
         let spi = SPI(Id(device))
         let asyncSpi = try AsyncSPI(with: spi)
 
-        Task {
-            debugPrint("Initialized async SPI handle \(asyncSpi)...")
-        }
-        RunLoop.main.run()
+        debugPrint("Initialized async SPI handle \(asyncSpi)...")
+
+        repeat {
+            let data = try await asyncSpi.read(4)
+            debugPrint(Data(data).hexDescription)
+        } while true
     }
 }
 

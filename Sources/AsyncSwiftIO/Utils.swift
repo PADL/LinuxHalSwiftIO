@@ -12,15 +12,13 @@
 
 import CNewlib
 import CSwiftIO
+import ErrNo
+import IORing
 import SwiftIO
 
 @inlinable
 func getClassPointer<T: AnyObject>(_ obj: T) -> UnsafeRawPointer {
     UnsafeRawPointer(Unmanaged.passUnretained(obj).toOpaque())
-}
-
-func system_strerror(_ __errnum: Int32) -> UnsafeMutablePointer<Int8>! {
-    strerror(__errnum)
 }
 
 @inlinable
@@ -78,4 +76,24 @@ func validateLength(
     }
 
     return .success(())
+}
+
+extension SwiftIO.Errno {
+    func asErrNo() -> ErrNo {
+        ErrNo(rawValue: rawValue)
+    }
+}
+
+extension ErrNo {
+    func asErrno() -> Errno {
+        Errno(rawValue: rawValue)
+    }
+
+    static func rethrowingErrno<T>(_ body: @escaping () async throws -> T) async rethrows -> T {
+        do {
+            return try await body()
+        } catch let error as ErrNo {
+            throw error.asErrno()
+        }
+    }
 }

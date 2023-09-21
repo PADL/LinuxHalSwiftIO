@@ -12,7 +12,7 @@ private struct Id: IdName {
 
 @main
 public enum UARTDumper {
-    public static func main() {
+    public static func main() async throws {
         var device: Int32!
 
         if CommandLine.arguments.count > 1 {
@@ -23,18 +23,15 @@ public enum UARTDumper {
             device = 0
         }
 
-        let spi = UART(Id(device))
+        let uart = UART(Id(device))
+        let asyncUart = try AsyncUART(with: uart)
 
-        Task {
-            let asyncSpi = AsyncUART(with: spi)
+        debugPrint("Initialized async UART handle \(asyncUart)...")
 
-            debugPrint("Initialized async UART handle \(asyncSpi)...")
-
-            for try await data in await asyncSpi.readChannel {
-                debugPrint(Data(data).hexDescription)
-            }
-        }
-        RunLoop.main.run()
+        repeat {
+            let data = try await asyncUart.read(asyncUart.readBufferLength)
+            debugPrint(Data(data).hexDescription)
+        } while true
     }
 }
 

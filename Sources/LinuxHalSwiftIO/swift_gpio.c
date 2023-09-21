@@ -222,7 +222,7 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
     int err;
     struct swifthal_gpio *gpio = arg;
     struct gpiod_line_request_config lrc;
-    dispatch_fd_t fd;
+    int fd;
 
     if (gpio == NULL)
         return -EINVAL;
@@ -309,7 +309,7 @@ int swifthal_gpio_interrupt_callback_install(void *arg,
     return swifthal_gpio__set_handler(arg, ^{
 #if 0
         struct gpiod_line_event event;
-        dispatch_fd_t fd = dispatch_source_get_handle(gpio->source);
+        int fd = dispatch_source_get_handle(gpio->source);
 
         memset(&event, 0, sizeof(event));
 
@@ -377,5 +377,18 @@ int swifthal_gpio_dev_number_get(void) {
     return bulk.num_lines;
 #else
     return 0;
+#endif
+}
+
+int swifthal_gpio_get_fd(void *arg) {
+    struct swifthal_gpio *gpio = arg;
+
+    if (gpio == NULL)
+        return -EINVAL;
+
+#if __linux__
+    return gpiod_line_event_get_fd(gpio->line);
+#else
+    return -ENOSYS;
 #endif
 }

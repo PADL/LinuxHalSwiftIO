@@ -14,18 +14,21 @@
 // limitations under the License.
 //
 
-import AsyncAlgorithms
-import AsyncExtensions
 import CSwiftIO
+import ErrNo
 import Foundation // workaround for apple/swift#66664
+import IORing
 import LinuxHalSwiftIO
 import SwiftIO
 
 public actor AsyncSPI: CustomStringConvertible {
+    private let ring: IORing
     private let spi: SPI
     private let blockSize: Int
     private let dataAvailableInput: DigitalIn?
-    private var dataAvailable: Bool = true
+
+    private typealias Continuation = CheckedContinuation<(), Error>
+    private var waiters = [Continuation]()
 
     public nonisolated var description: String {
         if let dataAvailableInput {
@@ -35,54 +38,33 @@ public actor AsyncSPI: CustomStringConvertible {
         }
     }
 
-    private func dataAvailableInterrupt() {
-        if let dataAvailableInput {
-            dataAvailable = dataAvailableInput.read()
-        }
-    }
-
     // TODO: move data available pin into SPI library
     public init(with spi: SPI, blockSize: Int = 1, dataAvailableInput: DigitalIn? = nil) throws {
+        guard let ring = IORing.shared else {
+            throw Errno.invalidArgument
+        }
+
+        self.ring = ring
         self.spi = spi
         self.blockSize = blockSize
         self.dataAvailableInput = dataAvailableInput
 
-        let result = nothingOrErrno(swifthal_spi_async_enable(spi.obj))
-        if case let .failure(error) = result {
-            throw error
-        }
-
         if let dataAvailableInput {
             dataAvailableInput.setInterrupt(.rising) {
-                Task {
-                    await self.dataAvailableInterrupt()
+                if dataAvailableInput.read() {
+                    Task { await self.resumeWaiters() }
                 }
             }
         }
     }
 
-    public func write(_ data: [UInt8]) async throws -> Int {
+    public func write(_ data: [UInt8]) async throws {
         if data.count % blockSize != 0 {
             throw Errno.invalidArgument
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            data.withUnsafeBytes { bytes in
-                let result = nothingOrErrno(
-                    swifthal_spi_async_write_with_handler(
-                        spi.obj,
-                        bytes.baseAddress!,
-                        bytes.count
-                    ) { _, _, _, _ in
-                        continuation.resume(returning: data.count)
-                        return true
-                    }
-                )
-                if case let .failure(error) = result {
-                    continuation.resume(throwing: error)
-                    return
-                }
-            }
+        try await ErrNo.rethrowingErrno { [self] in
+            try await ring.write(data, to: spi.fd)
         }
     }
 
@@ -91,23 +73,42 @@ public actor AsyncSPI: CustomStringConvertible {
             throw Errno.invalidArgument
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            swifthal_spi_async_read_with_handler(spi.obj, count) { _, data, count, error in
-                guard error == 0 else {
-                    continuation.resume(throwing: Errno(error))
-                    return true
-                }
+        try await dataAvailable()
 
-                let bytes: [UInt8]
-
-                if let data {
-                    bytes = Array(UnsafeBufferPointer<UInt8>(start: data, count: count))
-                } else {
-                    bytes = []
-                }
-                continuation.resume(returning: bytes)
-                return true
-            }
+        return try await ErrNo.rethrowingErrno { [self] in
+            try await ring.read(count: count, from: spi.fd)
         }
+    }
+
+    private func dataAvailable() async throws {
+        guard let dataAvailableInput else {
+            return
+        }
+
+        if dataAvailableInput.read() {
+            return
+        }
+
+        try await withCheckedThrowingContinuation { waiter in
+            waiters.insert(waiter, at: 0)
+        }
+    }
+
+    private func resumeWaiters() async {
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+
+    deinit {
+        for waiter in waiters {
+            waiter.resume(throwing: Errno(rawValue: ECANCELED))
+        }
+    }
+}
+
+extension SPI {
+    var fd: CInt {
+        swifthal_spi_get_fd(obj)
     }
 }

@@ -32,8 +32,7 @@
 #include "swift_hal_internal.h"
 
 struct swifthal_i2c {
-    dispatch_fd_t fd;
-    dispatch_queue_t queue;
+    int fd;
 };
 
 void *swifthal_i2c_open(int id) {
@@ -51,8 +50,6 @@ void *swifthal_i2c_open(int id) {
         swifthal_i2c_close(i2c);
         return NULL;
     }
-
-    i2c->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
     return i2c;
 }
@@ -151,3 +148,12 @@ int swifthal_i2c_write_read(void *arg,
 
 // FIXME: implement this by /sys/class/i2c-dev
 int swifthal_i2c_dev_number_get(void) { return 0; }
+
+int swifthal_i2c_get_fd(void *arg) {
+    struct swifthal_i2c *i2c = arg;
+
+    if (i2c == NULL)
+        return -EINVAL;
+
+    return i2c->fd;
+}

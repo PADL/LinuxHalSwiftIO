@@ -45,6 +45,7 @@ let package = Package(
         .package(url: "https://github.com/PADL/IORingSwift.git", branch: "main"),
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "0.1.0"),
         .package(url: "https://github.com/lhoward/AsyncExtensions", branch: "linux"),
+        .package(url: "https://github.com/PADL/IORingSwift", branch: "main"),
     ],
     targets: [
         .target(
@@ -66,6 +67,11 @@ let package = Package(
                 "AsyncExtensions",
                 .product(name: "SwiftIO", package: "SwiftIO"),
                 "LinuxHalSwiftIO",
+                .product(
+                    name: "IORing",
+                    package: "IORingSwift",
+                    condition: .when(platforms: [.linux])
+                ),
             ],
             cSettings: [
                 .unsafeFlags(["-I", SwiftLibRoot]),
