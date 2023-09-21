@@ -54,8 +54,7 @@ public actor AsyncUART: CustomStringConvertible {
         }
     }
 
-    private func asyncWrite(_ data: [UInt8]) throws {
-    }
+    private func asyncWrite(_ data: [UInt8]) throws {}
 
     public func write(_ data: [UInt8], count: Int? = nil) async throws {
         var writeLength = 0
@@ -68,13 +67,12 @@ public actor AsyncUART: CustomStringConvertible {
         await writeChannel.send(Array(data[0..<writeLength]))
     }
 
-    private func readChannelRun() {
-    }
+    private func readChannelRun() {}
 
     public func read(into buffer: inout [UInt8], count: Int? = nil) async throws -> Int {
         var readLength = 0
         let result = validateLength(buffer, count: count, length: &readLength)
 
-	return -1
+        return -1
     }
 }

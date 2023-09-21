@@ -61,7 +61,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw Errno.invalidArgument
         }
 
-	return -1
+        return -1
     }
 
     public func read(_ count: Int) async throws -> [UInt8] {
@@ -69,6 +69,6 @@ public actor AsyncSPI: CustomStringConvertible {
             throw Errno.invalidArgument
         }
 
-	return []
+        return []
     }
 }
