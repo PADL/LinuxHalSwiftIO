@@ -21,10 +21,10 @@
     {
       "identity" : "ioringswift",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/PADL/IORingSwift.git",
+      "location" : "https://github.com/PADL/IORingSwift",
       "state" : {
         "branch" : "main",
-        "revision" : "2e1768fcc980f99d7a0279e072a46ddcac864266"
+        "revision" : "f79d67e5927a907d0969da035ebb0c33d1d8fe91"
       }
     },
     {
