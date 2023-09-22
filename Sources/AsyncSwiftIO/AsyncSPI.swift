@@ -28,7 +28,7 @@ public actor AsyncSPI: CustomStringConvertible {
     private let dataAvailableInput: DigitalIn?
 
     private typealias Continuation = CheckedContinuation<(), Error>
-    private var waiters = [Continuation]()
+    private var waiters = Queue<Continuation>()
 
     public nonisolated var description: String {
         if let dataAvailableInput {
@@ -90,19 +90,19 @@ public actor AsyncSPI: CustomStringConvertible {
         }
 
         try await withCheckedThrowingContinuation { waiter in
-            waiters.insert(waiter, at: 0)
+            waiters.enqueue(waiter)
         }
     }
 
     private func resumeWaiters() async {
-        for waiter in waiters {
+        while let waiter = waiters.dequeue() {
             waiter.resume()
         }
     }
 
     deinit {
-        for waiter in waiters {
-            waiter.resume(throwing: Errno(rawValue: ECANCELED))
+        while let waiter = waiters.dequeue() {
+            waiter.resume(throwing: Errno.canceled)
         }
     }
 }
