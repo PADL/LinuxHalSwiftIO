@@ -24,7 +24,7 @@ public enum SPIDumper {
         }
 
         let spi = SPI(Id(device))
-        let asyncSpi = try AsyncSPI(with: spi)
+        let asyncSpi = try await AsyncSPI(with: spi)
 
         debugPrint("Initialized async SPI handle \(asyncSpi)...")
 

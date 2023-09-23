@@ -24,7 +24,7 @@ import SwiftIO
 public actor AsyncSPI: CustomStringConvertible {
     private let ring: IORing
     private let spi: SPI
-    private let blockSize: Int
+    private let blockSize: Int?
     private let dataAvailableInput: DigitalIn?
 
     private typealias Continuation = CheckedContinuation<(), Error>
@@ -32,22 +32,22 @@ public actor AsyncSPI: CustomStringConvertible {
 
     public nonisolated var description: String {
         if let dataAvailableInput {
-            return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize), dataAvailableInput: \(dataAvailableInput))"
+            return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize ?? 0), dataAvailableInput: \(dataAvailableInput))"
         } else {
-            return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize))"
+            return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize ?? 0))"
         }
     }
 
     // TODO: move data available pin into SPI library
-    public init(with spi: SPI, blockSize: Int = 1, dataAvailableInput: DigitalIn? = nil) throws {
-        guard let ring = IORing.shared else {
-            throw Errno.invalidArgument
-        }
-
-        self.ring = ring
+    public init(with spi: SPI, blockSize: Int? = nil, dataAvailableInput: DigitalIn? = nil) async throws {
+        self.ring = try IORing()
         self.spi = spi
         self.blockSize = blockSize
         self.dataAvailableInput = dataAvailableInput
+
+        if let blockSize {
+            try await ring.registerFixedBuffers(count: 2, size: blockSize)
+        }
 
         if let dataAvailableInput {
             dataAvailableInput.setInterrupt(.rising) {
@@ -59,24 +59,45 @@ public actor AsyncSPI: CustomStringConvertible {
     }
 
     public func write(_ data: [UInt8]) async throws {
-        if data.count % blockSize != 0 {
-            throw Errno.invalidArgument
-        }
-
         try await ErrNo.rethrowingErrno { [self] in
             try await ring.write(data, to: spi.fd)
         }
     }
 
     public func read(_ count: Int) async throws -> [UInt8] {
-        if count % blockSize != 0 {
-            throw Errno.invalidArgument
-        }
-
         try await dataAvailable()
 
         return try await ErrNo.rethrowingErrno { [self] in
             try await ring.read(count: count, from: spi.fd)
+        }
+    }
+
+    public func writeBlock(_ body: (ArraySlice<UInt8>) throws -> ()) async throws {
+        guard let blockSize else {
+            throw Errno.invalidArgument
+        }
+
+        if try await ring.writeFixed(count: blockSize, bufferIndex: 0, to: spi.fd, body) != blockSize {
+            throw Errno.resourceTemporarilyUnavailable
+        }
+    }
+
+    public func readBlock(_ body: (inout ArraySlice<UInt8>) throws -> ()) async throws {
+        guard let blockSize else {
+            throw Errno.invalidArgument
+        }
+
+        try await dataAvailable()
+        try await ring.readFixed(count: blockSize, bufferIndex: 1, from: spi.fd, body)
+    }
+
+    public func transceiveBlock(_ body: (inout ArraySlice<UInt8>) throws -> ()) async throws {
+        guard let blockSize else {
+            throw Errno.invalidArgument
+        }
+
+        if try await ring.writeReadFixed(count: blockSize, bufferIndex: 0, fd: spi.fd, body) != blockSize {
+            throw Errno.resourceTemporarilyUnavailable
         }
     }
 
