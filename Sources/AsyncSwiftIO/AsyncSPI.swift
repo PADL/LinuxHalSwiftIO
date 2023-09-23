@@ -15,7 +15,6 @@
 //
 
 import CSwiftIO
-import ErrNo
 import Foundation // workaround for apple/swift#66664
 import IORing
 import LinuxHalSwiftIO
@@ -59,7 +58,7 @@ public actor AsyncSPI: CustomStringConvertible {
     }
 
     public func write(_ data: [UInt8]) async throws {
-        try await ErrNo.rethrowingErrno { [self] in
+        try await rethrowingIORingErrno { [self] in
             try await ring.write(data, to: spi.fd)
         }
     }
@@ -67,24 +66,24 @@ public actor AsyncSPI: CustomStringConvertible {
     public func read(_ count: Int) async throws -> [UInt8] {
         try await dataAvailable()
 
-        return try await ErrNo.rethrowingErrno { [self] in
+        return try await rethrowingIORingErrno { [self] in
             try await ring.read(count: count, from: spi.fd)
         }
     }
 
     public func writeBlock(_ body: (ArraySlice<UInt8>) throws -> ()) async throws {
         guard let blockSize else {
-            throw Errno.invalidArgument
+            throw SwiftIO.Errno.invalidArgument
         }
 
         if try await ring.writeFixed(count: blockSize, bufferIndex: 0, to: spi.fd, body) != blockSize {
-            throw Errno.resourceTemporarilyUnavailable
+            throw SwiftIO.Errno.resourceTemporarilyUnavailable
         }
     }
 
     public func readBlock(_ body: (inout ArraySlice<UInt8>) throws -> ()) async throws {
         guard let blockSize else {
-            throw Errno.invalidArgument
+            throw SwiftIO.Errno.invalidArgument
         }
 
         try await dataAvailable()
@@ -93,11 +92,11 @@ public actor AsyncSPI: CustomStringConvertible {
 
     public func transceiveBlock(_ body: (inout ArraySlice<UInt8>) throws -> ()) async throws {
         guard let blockSize else {
-            throw Errno.invalidArgument
+            throw SwiftIO.Errno.invalidArgument
         }
 
         if try await ring.writeReadFixed(count: blockSize, bufferIndex: 0, fd: spi.fd, body) != blockSize {
-            throw Errno.resourceTemporarilyUnavailable
+            throw SwiftIO.Errno.resourceTemporarilyUnavailable
         }
     }
 
@@ -123,7 +122,7 @@ public actor AsyncSPI: CustomStringConvertible {
 
     deinit {
         while let waiter = waiters.dequeue() {
-            waiter.resume(throwing: Errno.canceled)
+            waiter.resume(throwing: SwiftIO.Errno.canceled)
         }
     }
 }

@@ -17,7 +17,6 @@
 import AsyncAlgorithms
 import AsyncExtensions
 import CSwiftIO
-import ErrNo
 import Foundation // workaround for apple/swift#66664
 import IORing
 import LinuxHalSwiftIO
@@ -34,7 +33,7 @@ public actor AsyncUART: CustomStringConvertible {
 
     public init(with uart: UART) throws {
         guard let ring = IORing.shared else {
-            throw Errno.invalidArgument
+            throw SwiftIO.Errno.invalidArgument
         }
 
         self.ring = ring
@@ -45,13 +44,13 @@ public actor AsyncUART: CustomStringConvertible {
     }
 
     public func write(_ data: [UInt8]) async throws {
-        try await ErrNo.rethrowingErrno { [self] in
+        try await rethrowingIORingErrno { [self] in
             try await ring.write(data, to: uart.fd)
         }
     }
 
     public func read(_ count: Int) async throws -> [UInt8] {
-        try await ErrNo.rethrowingErrno { [self] in
+        try await rethrowingIORingErrno { [self] in
             try await ring.read(count: count, from: uart.fd)
         }
     }

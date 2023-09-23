@@ -10,23 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CNewlib
-import CSwiftIO
-import ErrNo
-import IORing
-import SwiftIO
-
-@inlinable
-func getClassPointer<T: AnyObject>(_ obj: T) -> UnsafeRawPointer {
-    UnsafeRawPointer(Unmanaged.passUnretained(obj).toOpaque())
-}
+import struct IORing.Errno
+import struct SwiftIO.Errno
 
 @inlinable
 func validateLength(
     _ array: [UInt8],
     count: Int?,
     length: inout Int
-) -> Result<(), Errno> {
+) -> Result<(), SwiftIO.Errno> {
     if let count = count {
         if count > array.count || count < 0 {
             return .failure(Errno.invalidArgument)
@@ -45,7 +37,7 @@ func validateLength(
     _ buffer: UnsafeMutableRawBufferPointer,
     count: Int?,
     length: inout Int
-) -> Result<(), Errno> {
+) -> Result<(), SwiftIO.Errno> {
     if let count = count {
         if count > buffer.count || count < 0 {
             return .failure(Errno.invalidArgument)
@@ -64,7 +56,7 @@ func validateLength(
     _ buffer: UnsafeRawBufferPointer,
     count: Int?,
     length: inout Int
-) -> Result<(), Errno> {
+) -> Result<(), SwiftIO.Errno> {
     if let count = count {
         if count > buffer.count || count < 0 {
             return .failure(Errno.invalidArgument)
@@ -78,23 +70,11 @@ func validateLength(
     return .success(())
 }
 
-extension SwiftIO.Errno {
-    func asErrNo() -> ErrNo {
-        ErrNo(rawValue: rawValue)
-    }
-}
-
-extension ErrNo {
-    func asErrno() -> Errno {
-        Errno(rawValue: rawValue)
-    }
-
-    static func rethrowingErrno<T>(_ body: @escaping () async throws -> T) async rethrows -> T {
-        do {
-            return try await body()
-        } catch let error as ErrNo {
-            throw error.asErrno()
-        }
+func rethrowingIORingErrno<T>(_ body: @escaping () async throws -> T) async rethrows -> T {
+    do {
+        return try await body()
+    } catch let error as IORing.Errno {
+        throw SwiftIO.Errno(rawValue: error.rawValue)
     }
 }
 

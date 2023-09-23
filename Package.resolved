@@ -10,21 +10,12 @@
       }
     },
     {
-      "identity" : "errno",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Ponyboy47/ErrNo",
-      "state" : {
-        "revision" : "178566b112afe6bef3770678f1bbab6e5c626993",
-        "version" : "0.5.2"
-      }
-    },
-    {
       "identity" : "ioringswift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/PADL/IORingSwift.git",
       "state" : {
         "branch" : "main",
-        "revision" : "421b8c1530326312551a4ce8c8ca2f1e572b8777"
+        "revision" : "1f44e58f9bbffcc544f1c9e9b6be2c351630e7a8"
       }
     },
     {
