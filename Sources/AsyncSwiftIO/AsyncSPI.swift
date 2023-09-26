@@ -95,9 +95,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        if try await ring.writeReadFixed(count: blockSize, bufferIndex: 0, fd: spi.fd, body) != blockSize {
-            throw SwiftIO.Errno.resourceTemporarilyUnavailable
-        }
+        try await ring.writeReadFixed(count: blockSize, bufferIndex: 0, fd: spi.fd, body)
     }
 
     private func dataAvailable() async throws {
