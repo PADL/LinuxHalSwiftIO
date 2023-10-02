@@ -39,7 +39,7 @@ public actor AsyncSPI: CustomStringConvertible {
 
     // TODO: move data available pin into SPI library
     public init(with spi: SPI, blockSize: Int? = nil, dataAvailableInput: DigitalIn? = nil) async throws {
-        self.ring = IORing.shared
+        self.ring = try IORing()
         self.spi = spi
         self.fd = try FileHandle(fileDescriptor: swifthal_spi_get_fd(spi.obj))
         self.blockSize = blockSize
