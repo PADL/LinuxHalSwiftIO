@@ -78,7 +78,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        if try await ring.writeFixed(count: blockSize, bufferIndex: 0, to: fd, body) != blockSize {
+        if try await ring.writeFixed(count: blockSize, offset: 0, bufferIndex: 0, to: fd, body) != blockSize {
             throw SwiftIO.Errno.resourceTemporarilyUnavailable
         }
     }
@@ -89,7 +89,7 @@ public actor AsyncSPI: CustomStringConvertible {
         }
 
         try await dataAvailable()
-        try await ring.readFixed(count: blockSize, bufferIndex: 1, from: fd, body)
+        try await ring.readFixed(count: blockSize, offset: 0, bufferIndex: 1, from: fd, body)
     }
 
     public func transceiveBlock(_ body: (inout ArraySlice<UInt8>) throws -> ()) async throws {
@@ -97,7 +97,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        try await ring.writeReadFixed(count: blockSize, bufferIndex: 0, fd: fd, body)
+        try await ring.writeReadFixed(count: blockSize, offset: 0, bufferIndex: 0, fd: fd, body)
     }
 
     private func dataAvailable() async throws {
