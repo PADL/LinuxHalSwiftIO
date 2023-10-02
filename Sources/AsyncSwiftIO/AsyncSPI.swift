@@ -15,7 +15,6 @@
 //
 
 import CSwiftIO
-import Foundation // workaround for apple/swift#66664
 import IORing
 import LinuxHalSwiftIO
 import SwiftIO
@@ -23,6 +22,7 @@ import SwiftIO
 public actor AsyncSPI: CustomStringConvertible {
     private let ring: IORing
     private let spi: SPI
+    private let fd: FileHandle
     private let blockSize: Int?
     private let dataAvailableInput: DigitalIn?
 
@@ -39,12 +39,14 @@ public actor AsyncSPI: CustomStringConvertible {
 
     // TODO: move data available pin into SPI library
     public init(with spi: SPI, blockSize: Int? = nil, dataAvailableInput: DigitalIn? = nil) async throws {
-        self.ring = try IORing()
+        self.ring = IORing.shared
         self.spi = spi
+        self.fd = try FileHandle(fileDescriptor: swifthal_spi_get_fd(spi.obj))
         self.blockSize = blockSize
         self.dataAvailableInput = dataAvailableInput
 
         if let blockSize {
+            // FIXME: this isn't very friendly to other IORing instances
             try await ring.registerFixedBuffers(count: 2, size: blockSize)
         }
 
@@ -59,7 +61,7 @@ public actor AsyncSPI: CustomStringConvertible {
 
     public func write(_ data: [UInt8]) async throws {
         try await rethrowingIORingErrno { [self] in
-            try await ring.write(data, to: spi.fd)
+            try await ring.write(data, to: fd)
         }
     }
 
@@ -67,7 +69,7 @@ public actor AsyncSPI: CustomStringConvertible {
         try await dataAvailable()
 
         return try await rethrowingIORingErrno { [self] in
-            try await ring.read(count: count, from: spi.fd)
+            try await ring.read(count: count, from: fd)
         }
     }
 
@@ -76,7 +78,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        if try await ring.writeFixed(count: blockSize, bufferIndex: 0, to: spi.fd, body) != blockSize {
+        if try await ring.writeFixed(count: blockSize, bufferIndex: 0, to: fd, body) != blockSize {
             throw SwiftIO.Errno.resourceTemporarilyUnavailable
         }
     }
@@ -87,7 +89,7 @@ public actor AsyncSPI: CustomStringConvertible {
         }
 
         try await dataAvailable()
-        try await ring.readFixed(count: blockSize, bufferIndex: 1, from: spi.fd, body)
+        try await ring.readFixed(count: blockSize, bufferIndex: 1, from: fd, body)
     }
 
     public func transceiveBlock(_ body: (inout ArraySlice<UInt8>) throws -> ()) async throws {
@@ -95,7 +97,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        try await ring.writeReadFixed(count: blockSize, bufferIndex: 0, fd: spi.fd, body)
+        try await ring.writeReadFixed(count: blockSize, bufferIndex: 0, fd: fd, body)
     }
 
     private func dataAvailable() async throws {
@@ -122,11 +124,5 @@ public actor AsyncSPI: CustomStringConvertible {
         while let waiter = waiters.dequeue() {
             waiter.resume(throwing: SwiftIO.Errno.canceled)
         }
-    }
-}
-
-extension SPI {
-    var fd: CInt {
-        swifthal_spi_get_fd(obj)
     }
 }
