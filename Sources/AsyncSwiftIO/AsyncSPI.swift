@@ -73,31 +73,33 @@ public actor AsyncSPI: CustomStringConvertible {
         }
     }
 
-    public func writeBlock(_ body: (ArraySlice<UInt8>) throws -> ()) async throws {
+    public func writeBlock(_ block: [UInt8]) async throws {
         guard let blockSize else {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        if try await ring.writeFixed(count: blockSize, offset: 0, bufferIndex: 0, to: fd, body) != blockSize {
+        if try await ring.writeFixed(block, count: blockSize, bufferIndex: 0, to: fd) != blockSize {
             throw SwiftIO.Errno.resourceTemporarilyUnavailable
         }
     }
 
-    public func readBlock(_ body: (inout ArraySlice<UInt8>) throws -> ()) async throws {
+    public func readBlock() async throws -> [UInt8] {
         guard let blockSize else {
             throw SwiftIO.Errno.invalidArgument
         }
 
         try await dataAvailable()
-        try await ring.readFixed(count: blockSize, offset: 0, bufferIndex: 1, from: fd, body)
+        return try await ring.readFixed(count: blockSize, bufferIndex: 1, from: fd) {
+          Array($0)
+        }
     }
 
-    public func transceiveBlock(_ body: (inout ArraySlice<UInt8>) throws -> ()) async throws {
+    public func transceiveBlock(_ block: inout [UInt8]) async throws {
         guard let blockSize else {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        try await ring.writeReadFixed(count: blockSize, offset: 0, bufferIndex: 0, fd: fd, body)
+        try await ring.writeReadFixed(&block, count: blockSize, bufferIndex: 0, fd: fd)
     }
 
     private func dataAvailable() async throws {
