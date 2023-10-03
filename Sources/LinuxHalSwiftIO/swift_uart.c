@@ -25,9 +25,9 @@
 #ifdef __linux__
 #include <asm/termbits.h>
 #elif defined(__APPLE__)
-#include <sys/time.h>
 #include <sys/param.h>
 #endif
+#include <sys/time.h>
 #include <sys/ioctl.h>
 #include <dispatch/dispatch.h>
 
