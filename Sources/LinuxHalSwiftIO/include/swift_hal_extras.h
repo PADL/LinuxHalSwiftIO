@@ -44,4 +44,5 @@ int swifthal_spi_get_fd(void * _Nonnull spi);
 /// UART
 ///
 
+int swifthal_uart_data_bits_set(void * _Nonnull uart, swift_uart_data_bits_t data_bits);
 int swifthal_uart_get_fd(void * _Nonnull uart);
