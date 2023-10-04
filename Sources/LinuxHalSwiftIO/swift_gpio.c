@@ -76,7 +76,7 @@ void *swifthal_gpio__open(int id,
 }
 
 int swifthal_gpio_close(void *arg) {
-    struct swifthal_gpio *gpio = arg;
+    struct swifthal_gpio *gpio = (struct swifthal_gpio *)arg;
 
     if (gpio) {
 #ifdef __linux__
@@ -122,7 +122,7 @@ int swifthal_gpio_config(void *arg,
                          swift_gpio_mode_t io_mode) {
 #ifdef __linux__
     int err;
-    struct swifthal_gpio *gpio = arg;
+    struct swifthal_gpio *gpio = (struct swifthal_gpio *)arg;
     struct gpiod_line_request_config lrc;
 
     if (gpio == NULL)
@@ -185,7 +185,7 @@ int swifthal_gpio_config(void *arg,
 }
 
 int swifthal_gpio_set(void *arg, int level) {
-    struct swifthal_gpio *gpio = arg;
+    const struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL)
         return -EINVAL;
@@ -200,7 +200,7 @@ int swifthal_gpio_set(void *arg, int level) {
 }
 
 int swifthal_gpio_get(void *arg) {
-    struct swifthal_gpio *gpio = arg;
+    const struct swifthal_gpio *gpio = arg;
     int value;
 
     if (gpio == NULL)
@@ -220,7 +220,7 @@ int swifthal_gpio_get(void *arg) {
 int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
 #ifdef __linux__
     int err;
-    struct swifthal_gpio *gpio = arg;
+    struct swifthal_gpio *gpio = (struct swifthal_gpio *)arg;
     struct gpiod_line_request_config lrc;
     int fd;
 
@@ -273,7 +273,7 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
 }
 
 static int swifthal_gpio__set_handler(void *arg, void (^handler)(void)) {
-    struct swifthal_gpio *gpio = arg;
+    const struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL || gpio->source == NULL)
         return -EINVAL;
@@ -325,7 +325,7 @@ int swifthal_gpio_interrupt_callback_install(void *arg,
 }
 
 int swifthal_gpio_interrupt_callback_uninstall(void *arg) {
-    struct swifthal_gpio *gpio = arg;
+    const struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL)
         return -EINVAL;
@@ -336,7 +336,7 @@ int swifthal_gpio_interrupt_callback_uninstall(void *arg) {
 }
 
 int swifthal_gpio_interrupt_enable(void *arg) {
-    struct swifthal_gpio *gpio = arg;
+    const struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL)
         return -EINVAL;
@@ -350,7 +350,7 @@ int swifthal_gpio_interrupt_enable(void *arg) {
 }
 
 int swifthal_gpio_interrupt_disable(void *arg) {
-    struct swifthal_gpio *gpio = arg;
+    const struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL || gpio->source == NULL)
         return -EINVAL;
@@ -380,8 +380,8 @@ int swifthal_gpio_dev_number_get(void) {
 #endif
 }
 
-int swifthal_gpio_get_fd(void *arg) {
-    struct swifthal_gpio *gpio = arg;
+int swifthal_gpio_get_fd(const void *arg) {
+    const struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL)
         return -EINVAL;

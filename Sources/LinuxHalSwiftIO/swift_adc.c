@@ -26,9 +26,7 @@ void *swifthal_adc_open(int id) { return NULL; }
 
 int swifthal_adc_close(void *adc) { return -ENOSYS; }
 
-int swifthal_adc_read(void *adc, unsigned short *sample_buffer) {
-    return -ENOSYS;
-}
+int swifthal_adc_read(void *adc, uint16_t *sample_buffer) { return -ENOSYS; }
 
 int swifthal_adc_info_get(void *adc, swift_adc_info_t *info) { return -ENOSYS; }
 

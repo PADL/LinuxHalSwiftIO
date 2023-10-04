@@ -26,37 +26,37 @@ void *swifthal_i2s_open(int id) { return NULL; }
 
 void *swifthal_i2s_handle_get(int id) { return NULL; }
 
-int swifthal_i2s_id_get(const void *i2s) { return -1; }
+int swifthal_i2s_id_get(void *i2s) { return -1; }
 
-int swifthal_i2s_close(const void *i2s) { return -ENOSYS; }
+int swifthal_i2s_close(void *i2s) { return -ENOSYS; }
 
-int swifthal_i2s_config_set(const void *i2s,
+int swifthal_i2s_config_set(void *i2s,
                             const swift_i2s_dir_t dir,
                             const swift_i2s_cfg_t *cfg) {
     return -ENOSYS;
 }
 
-int swifthal_i2s_config_get(const void *i2s,
+int swifthal_i2s_config_get(void *i2s,
                             const swift_i2s_dir_t dir,
                             swift_i2s_cfg_t *cfg) {
     return -ENOSYS;
 }
 
-int swifthal_i2s_trigger(const void *i2s,
+int swifthal_i2s_trigger(void *i2s,
                          const swift_i2s_dir_t dir,
                          const i2s_trigger_cmd_t cmd) {
     return -ENOSYS;
 }
 
-int swifthal_i2s_status_get(const void *i2s, const swift_i2s_dir_t dir) {
+int swifthal_i2s_status_get(void *i2s, const swift_i2s_dir_t dir) {
     return -ENOSYS;
 }
 
-int swifthal_i2s_write(const void *i2s, const unsigned char *buf, int length) {
+int swifthal_i2s_write(void *i2s, const uint8_t *buf, ssize_t length) {
     return -ENOSYS;
 }
 
-int swifthal_i2s_read(const void *i2s, unsigned char *buf, int length) {
+int swifthal_i2s_read(void *i2s, uint8_t *buf, ssize_t length) {
     return -ENOSYS;
 }
 

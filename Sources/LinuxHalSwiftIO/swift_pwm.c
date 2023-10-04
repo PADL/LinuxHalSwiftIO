@@ -26,7 +26,9 @@ void *swifthal_pwm_open(int id) { return NULL; }
 
 int swifthal_pwm_close(void *pwm) { return -ENOSYS; }
 
-int swifthal_pwm_set(void *pwm, int period, int pulse) { return -ENOSYS; }
+int swifthal_pwm_set(void *pwm, ssize_t period, ssize_t pulse) {
+    return -ENOSYS;
+}
 
 int swifthal_pwm_suspend(void *pwm) { return -ENOSYS; }
 

@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dfed/swift-async-queue",
       "state" : {
-        "revision" : "a232ddbfb776a3d3e380dce30e7d5f617cffcf82",
-        "version" : "0.4.0"
+        "revision" : "6837ecbeb394eb1fc7ec6b6a858636074309abd9",
+        "version" : "0.4.1"
       }
     },
     {
@@ -50,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/madmachineio/SwiftIO",
       "state" : {
-        "branch" : "main",
-        "revision" : "ac937b88e5e6aabdc8945aa2804d411ade2345f6"
+        "branch" : "fix/minor_api_modify",
+        "revision" : "3ffaf9e3b185fc378e425a122e037fc0577783ce"
       }
     }
   ],

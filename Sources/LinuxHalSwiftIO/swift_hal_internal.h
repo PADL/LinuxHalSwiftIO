@@ -60,4 +60,3 @@ void *swifthal_gpio__open(int id,
                           const char *chip,
                           swift_gpio_direction_t direction,
                           swift_gpio_mode_t io_mode);
-

@@ -34,10 +34,11 @@
 
 char *swifthal_mount_point_get(void) { return "/"; }
 
-void *swifthal_fs_open(const char *path, unsigned char flags) {
+int swifthal_fs_open(void **fp, const char *path, uint8_t flags) {
     int oflags = 0;
-    FILE *fp;
     const char *mode;
+
+    *fp = NULL;
 
     if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_READ &&
         (flags & SWIFT_FS_O_FLAGS_MASK) == 0) {
@@ -61,7 +62,11 @@ void *swifthal_fs_open(const char *path, unsigned char flags) {
         mode = "a+";
     }
 
-    return fopen(path, mode);
+    *fp = fopen(path, mode);
+    if (*fp == NULL)
+        return -errno;
+
+    return 0;
 }
 
 int swifthal_fs_close(void *fp) {
@@ -82,7 +87,7 @@ int swifthal_fs_rename(const char *from, char *to) {
     return 0;
 }
 
-int swifthal_fs_write(void *fp, const void *buf, unsigned int size) {
+int swifthal_fs_write(void *fp, const void *buf, ssize_t size) {
     ssize_t nbytes;
 
     nbytes = fwrite(buf, size, 1, fp);
@@ -92,7 +97,7 @@ int swifthal_fs_write(void *fp, const void *buf, unsigned int size) {
     return (int)nbytes;
 }
 
-int swifthal_fs_read(void *fp, void *buf, unsigned int size) {
+int swifthal_fs_read(void *fp, void *buf, ssize_t size) {
     ssize_t nbytes;
 
     nbytes = fread(buf, size, 1, fp);
@@ -102,7 +107,7 @@ int swifthal_fs_read(void *fp, void *buf, unsigned int size) {
     return (int)nbytes;
 }
 
-int swifthal_fs_seek(void *fp, int offset, int whence) {
+int swifthal_fs_seek(void *fp, ssize_t offset, int whence) {
     int fwhence = 0;
 
     switch (whence) {
@@ -126,7 +131,7 @@ int swifthal_fs_tell(void *fp) {
     return (int)offset;
 }
 
-int swifthal_fs_truncate(void *fp, unsigned int length) {
+int swifthal_fs_truncate(void *fp, ssize_t length) {
     if (ftruncate(fileno(fp), length) < 0)
         return -errno;
     return 0;
@@ -144,7 +149,12 @@ int swifthal_fs_mkdir(const char *path) {
     return 0;
 }
 
-void *swifthal_fs_opendir(const char *path) { return opendir(path); }
+int swifthal_fs_opendir(void **dp, const char *path) {
+    *dp = opendir(path);
+    if (*dp == NULL)
+        return -errno;
+    return 0;
+}
 
 int swifthal_fs_readdir(void *dp, swift_fs_dirent_t *entry) {
     struct dirent *dentry;
