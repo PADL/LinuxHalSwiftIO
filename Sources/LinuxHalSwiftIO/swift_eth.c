@@ -21,17 +21,17 @@
 
 #include "swift_hal_internal.h"
 
-int swift_eth_setup_mac(const unsigned char *mac) { return -ENOSYS; }
+int swift_eth_setup_mac(const uint8_t *mac) { return -ENOSYS; }
 
-int swift_eth_tx_register(int (*send)(const unsigned char *, int)) {
+int swift_eth_tx_register(int (*send)(const uint8_t *, int)) {
     return -ENOSYS;
 }
 
-int swift_eth_rx(unsigned char *data, unsigned short len) { return -ENOSYS; }
+int swift_eth_rx(uint8_t *data, uint16_t len) { return -ENOSYS; }
 
-int swift_eth_event_send(int event_id,
+int swift_eth_event_send(int32_t event_id,
                          void *event_data,
-                         int event_data_size,
-                         int ticks_to_wait) {
+                         ssize_t event_data_size,
+                         ssize_t ticks_to_wait) {
     return -ENOSYS;
 }

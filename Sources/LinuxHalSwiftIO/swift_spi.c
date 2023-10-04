@@ -36,7 +36,7 @@ struct swifthal_spi {
     uint16_t operation_old;
 };
 
-static int swifthal_spi__read_config(struct swifthal_spi *spi,
+static int swifthal_spi__read_config(const struct swifthal_spi *spi,
                                      uint32_t *speed,
                                      uint16_t *operation) {
 #ifdef __linux__
@@ -80,9 +80,9 @@ static int swifthal_spi__read_config(struct swifthal_spi *spi,
 #endif
 }
 
-void *swifthal_spi_open(int id,
-                        int speed,
-                        unsigned short operation,
+const void *swifthal_spi_open(int id,
+                        ssize_t speed,
+                        uint16_t operation,
                         void (*w_notify)(void *),
                         void (*r_notify)(void *)) {
     struct swifthal_spi *spi;
@@ -113,8 +113,8 @@ void *swifthal_spi_open(int id,
     return spi;
 }
 
-int swifthal_spi_close(void *arg) {
-    struct swifthal_spi *spi = arg;
+int swifthal_spi_close(const void *arg) {
+    struct swifthal_spi *spi = (struct swifthal_spi *)arg;
 
     if (spi) {
         if (spi->speed_old)
@@ -128,9 +128,9 @@ int swifthal_spi_close(void *arg) {
     return -EINVAL;
 }
 
-int swifthal_spi_config(void *arg, int speed, unsigned short operation) {
+int swifthal_spi_config(const void *arg, ssize_t speed, uint16_t operation) {
 #ifdef __linux__
-    struct swifthal_spi *spi = arg;
+    const struct swifthal_spi *spi = arg;
     uint8_t mode = 0;
     uint8_t lsb;
     uint8_t bpw;
@@ -180,8 +180,8 @@ int swifthal_spi_config(void *arg, int speed, unsigned short operation) {
     return 0;
 }
 
-int swifthal_spi_write(void *arg, const unsigned char *buf, int length) {
-    struct swifthal_spi *spi = arg;
+int swifthal_spi_write(const void *arg, const uint8_t *buf, ssize_t length) {
+    const struct swifthal_spi *spi = arg;
 
     if (spi) {
         ssize_t nbytes = write(spi->fd, buf, length);
@@ -194,8 +194,8 @@ int swifthal_spi_write(void *arg, const unsigned char *buf, int length) {
     return -EINVAL;
 }
 
-int swifthal_spi_read(void *arg, unsigned char *buf, int length) {
-    struct swifthal_spi *spi = arg;
+int swifthal_spi_read(const void *arg, uint8_t *buf, ssize_t length) {
+    const struct swifthal_spi *spi = arg;
 
     if (spi) {
         ssize_t nbytes = read(spi->fd, buf, length);
@@ -208,13 +208,13 @@ int swifthal_spi_read(void *arg, unsigned char *buf, int length) {
     return -EINVAL;
 }
 
-int swifthal_spi_transceive(void *arg,
-                            const unsigned char *w_buf,
-                            int w_length,
-                            unsigned char *r_buf,
-                            int r_length) {
+int swifthal_spi_transceive(const void *arg,
+                            const uint8_t *w_buf,
+                            ssize_t w_length,
+                            uint8_t *r_buf,
+                            ssize_t r_length) {
 #ifdef __linux__
-    struct swifthal_spi *spi = arg;
+    const struct swifthal_spi *spi = arg;
     struct spi_ioc_transfer xfer[2];
 
     if (spi == NULL || w_buf == NULL || r_buf == NULL)
@@ -238,19 +238,19 @@ int swifthal_spi_transceive(void *arg,
 #endif
 }
 
-int swifthal_spi_async_write(void *arg, const unsigned char *buf, int length) {
+int swifthal_spi_async_write(const void *arg, const uint8_t *buf, ssize_t length) {
     return -ENOSYS;
 }
 
-int swifthal_spi_async_read(void *arg, unsigned char *buf, int length) {
+int swifthal_spi_async_read(const void *arg, uint8_t *buf, ssize_t length) {
     return -ENOSYS;
 }
 
 // FIXME: implement this by interrogating /sys/class/spi_master
 int swifthal_spi_dev_number_get(void) { return 0; }
 
-int swifthal_spi_get_fd(void *arg) {
-    struct swifthal_spi *spi = arg;
+int swifthal_spi_get_fd(const void *arg) {
+    const struct swifthal_spi *spi = arg;
 
     if (spi == NULL)
         return EINVAL;

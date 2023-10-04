@@ -52,11 +52,11 @@ int swifthal_i2s_status_get(const void *i2s, const swift_i2s_dir_t dir) {
     return -ENOSYS;
 }
 
-int swifthal_i2s_write(const void *i2s, const unsigned char *buf, int length) {
+int swifthal_i2s_write(const void *i2s, const uint8_t *buf, int length) {
     return -ENOSYS;
 }
 
-int swifthal_i2s_read(const void *i2s, unsigned char *buf, int length) {
+int swifthal_i2s_read(const void *i2s, uint8_t *buf, int length) {
     return -ENOSYS;
 }
 

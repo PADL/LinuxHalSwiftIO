@@ -44,7 +44,7 @@ struct swifthal_uart {
 #define SWIFTHAL_UART_REMAIN(uart)                                             \
     ((uart)->read_buf_len - (uart)->read_buf_offset)
 
-static int swifthal_uart__enable_nbio(struct swifthal_uart *uart) {
+static int swifthal_uart__enable_nbio(const struct swifthal_uart *uart) {
     int flags = fcntl(uart->fd, F_GETFL, 0);
     if ((flags & O_NONBLOCK) == 0) {
         if (fcntl(uart->fd, F_SETFL, flags | O_NONBLOCK) < 0) {
@@ -59,7 +59,7 @@ static int swifthal_uart__enable_nbio(struct swifthal_uart *uart) {
     return 0;
 }
 
-void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
+const void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
     struct swifthal_uart *uart;
     char device[PATH_MAX + 1];
     int err;
@@ -99,8 +99,8 @@ void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
     return uart;
 }
 
-int swifthal_uart_close(void *arg) {
-    struct swifthal_uart *uart = arg;
+int swifthal_uart_close(const void *arg) {
+    struct swifthal_uart *uart = (struct swifthal_uart *)arg;
 
     if (uart) {
         if (uart->fd != -1)
@@ -113,9 +113,9 @@ int swifthal_uart_close(void *arg) {
     return -EINVAL;
 }
 
-int swifthal_uart_baudrate_set(void *arg, int baudrate) {
+int swifthal_uart_baudrate_set(const void *arg, ssize_t baudrate) {
 #ifdef __linux__
-    struct swifthal_uart *uart = arg;
+    const struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
     if (uart == NULL || baudrate == 0)
@@ -135,9 +135,9 @@ int swifthal_uart_baudrate_set(void *arg, int baudrate) {
 #endif
 }
 
-int swifthal_uart_parity_set(void *arg, swift_uart_parity_t parity) {
+int swifthal_uart_parity_set(const void *arg, swift_uart_parity_t parity) {
 #ifdef __linux__
-    struct swifthal_uart *uart = arg;
+    const struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
     if (uart == NULL)
@@ -170,9 +170,9 @@ int swifthal_uart_parity_set(void *arg, swift_uart_parity_t parity) {
 #endif
 }
 
-int swifthal_uart_stop_bits_set(void *arg, swift_uart_stop_bits_t stop_bits) {
+int swifthal_uart_stop_bits_set(const void *arg, swift_uart_stop_bits_t stop_bits) {
 #ifdef __linux__
-    struct swifthal_uart *uart = arg;
+    const struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
     if (uart == NULL)
@@ -200,9 +200,9 @@ int swifthal_uart_stop_bits_set(void *arg, swift_uart_stop_bits_t stop_bits) {
 #endif
 }
 
-int swifthal_uart_data_bits_set(void *arg, swift_uart_data_bits_t data_bits) {
+int swifthal_uart_data_bits_set(const void *arg, swift_uart_data_bits_t data_bits) {
 #ifdef __linux__
-    struct swifthal_uart *uart = arg;
+    const struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
     if (uart == NULL)
@@ -228,9 +228,9 @@ int swifthal_uart_data_bits_set(void *arg, swift_uart_data_bits_t data_bits) {
 #endif
 }
 
-int swifthal_uart_config_get(void *arg, swift_uart_cfg_t *cfg) {
+int swifthal_uart_config_get(const void *arg, swift_uart_cfg_t *cfg) {
 #ifdef __linux__
-    struct swifthal_uart *uart = arg;
+    const struct swifthal_uart *uart = arg;
     struct termios2 tty;
 
     memset(cfg, 0, sizeof(*cfg));
@@ -273,23 +273,23 @@ int swifthal_uart_config_get(void *arg, swift_uart_cfg_t *cfg) {
 #endif
 }
 
-int swifthal_uart_char_put(void *arg, unsigned char c) {
-    struct swifthal_uart *uart = arg;
+int swifthal_uart_char_put(const void *arg, uint8_t c) {
+    const struct swifthal_uart *uart = arg;
 
     return swifthal_uart_write(uart, &c, 1);
 }
 
-int swifthal_uart_char_get(void *arg, unsigned char *c, int timeout) {
-    struct swifthal_uart *uart = arg;
+int swifthal_uart_char_get(const void *arg, uint8_t *c, int timeout) {
+    const struct swifthal_uart *uart = arg;
 
     return swifthal_uart_read(uart, c, 1, timeout);
 }
 
-int swifthal_uart_write(void *arg, const unsigned char *buf, int length) {
-    struct swifthal_uart *uart = arg;
+int swifthal_uart_write(const void *arg, const uint8_t *buf, ssize_t length) {
+    const struct swifthal_uart *uart = arg;
     struct pollfd pollfd;
     int err;
-    const unsigned char *bufp;
+    const uint8_t *bufp;
     size_t nremain;
 
     if (uart == NULL)
@@ -384,8 +384,8 @@ static ssize_t swifthal_uart__read_buffer(struct swifthal_uart *uart,
     return SWIFTHAL_UART_REMAIN(uart);
 }
 
-int swifthal_uart_read(void *arg, unsigned char *buf, int length, int timeout) {
-    struct swifthal_uart *uart = arg;
+int swifthal_uart_read(const void *arg, uint8_t *buf, ssize_t length, int timeout) {
+    struct swifthal_uart *uart = (struct swifthal_uart *)arg;
     int64_t timeout64 = (int64_t)timeout;
     ssize_t nremain = (size_t)length;
     ssize_t res;
@@ -429,14 +429,14 @@ int swifthal_uart_read(void *arg, unsigned char *buf, int length, int timeout) {
     return (int)nremain;
 }
 
-int swifthal_uart_remainder_get(void *arg) {
-    struct swifthal_uart *uart = arg;
+int swifthal_uart_remainder_get(const void *arg) {
+    const struct swifthal_uart *uart = arg;
 
     return SWIFTHAL_UART_REMAIN(uart);
 }
 
-int swifthal_uart_buffer_clear(void *arg) {
-    struct swifthal_uart *uart = arg;
+int swifthal_uart_buffer_clear(const void *arg) {
+    struct swifthal_uart *uart = (struct swifthal_uart *)arg;
 
     if (uart == NULL)
         return -EINVAL;
@@ -453,8 +453,8 @@ int swifthal_uart_buffer_clear(void *arg) {
 
 int swifthal_uart_dev_number_get(void) { return 0; }
 
-int swifthal_uart_get_fd(void *arg) {
-    struct swifthal_uart *uart = arg;
+int swifthal_uart_get_fd(const void *arg) {
+    const struct swifthal_uart *uart = arg;
 
     if (uart == NULL)
         return -EINVAL;

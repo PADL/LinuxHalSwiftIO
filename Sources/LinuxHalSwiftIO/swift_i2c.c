@@ -35,7 +35,7 @@ struct swifthal_i2c {
     int fd;
 };
 
-void *swifthal_i2c_open(int id) {
+const void *swifthal_i2c_open(int id) {
     struct swifthal_i2c *i2c;
     char device[PATH_MAX + 1];
 
@@ -54,8 +54,8 @@ void *swifthal_i2c_open(int id) {
     return i2c;
 }
 
-int swifthal_i2c_close(void *arg) {
-    struct swifthal_i2c *i2c = arg;
+int swifthal_i2c_close(const void *arg) {
+    struct swifthal_i2c *i2c = (struct swifthal_i2c *)arg;
 
     if (i2c) {
         if (i2c->fd != -1)
@@ -67,17 +67,17 @@ int swifthal_i2c_close(void *arg) {
     return -EINVAL;
 }
 
-int swifthal_i2c_config(void *arg, unsigned int speed) {
+int swifthal_i2c_config(const void *arg, unsigned int speed) {
     // looks like this needs to be configured in the device tree
     return -ENOSYS;
 }
 
-int swifthal_i2c_write(void *arg,
-                       unsigned char address,
-                       const unsigned char *buf,
-                       int length) {
+int swifthal_i2c_write(const void *arg,
+                       uint8_t address,
+                       const uint8_t *buf,
+                       ssize_t length) {
 #ifdef __linux__
-    struct swifthal_i2c *i2c = arg;
+    const struct swifthal_i2c *i2c = arg;
 
     if (i2c == NULL)
         return -EINVAL;
@@ -92,12 +92,12 @@ int swifthal_i2c_write(void *arg,
 #endif
 }
 
-int swifthal_i2c_read(void *arg,
-                      unsigned char address,
-                      unsigned char *buf,
-                      int length) {
+int swifthal_i2c_read(const void *arg,
+                      uint8_t address,
+                      uint8_t *buf,
+                      ssize_t length) {
 #ifdef __linux__
-    struct swifthal_i2c *i2c = arg;
+    const struct swifthal_i2c *i2c = arg;
 
     if (i2c == NULL)
         return -EINVAL;
@@ -112,14 +112,14 @@ int swifthal_i2c_read(void *arg,
 #endif
 }
 
-int swifthal_i2c_write_read(void *arg,
-                            unsigned char addr,
+int swifthal_i2c_write_read(const void *arg,
+                            uint8_t addr,
                             const void *write_buf,
-                            int num_write,
+                            ssize_t num_write,
                             void *read_buf,
-                            int num_read) {
+                            ssize_t num_read) {
 #ifdef __linux__
-    struct swifthal_i2c *i2c = arg;
+    const struct swifthal_i2c *i2c = arg;
     struct i2c_msg messages[2];
     struct i2c_rdwr_ioctl_data ioctl_data = {messages, sizeof(messages) /
                                                            sizeof(messages[0])};
@@ -149,8 +149,8 @@ int swifthal_i2c_write_read(void *arg,
 // FIXME: implement this by /sys/class/i2c-dev
 int swifthal_i2c_dev_number_get(void) { return 0; }
 
-int swifthal_i2c_get_fd(void *arg) {
-    struct swifthal_i2c *i2c = arg;
+int swifthal_i2c_get_fd(const void *arg) {
+    const struct swifthal_i2c *i2c = arg;
 
     if (i2c == NULL)
         return -EINVAL;

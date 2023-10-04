@@ -27,7 +27,7 @@ struct swifthal_counter {
     clockid_t clockid;
 };
 
-void *swifthal_counter_open(int id) {
+const void *swifthal_counter_open(int id) {
     struct swifthal_counter *counter;
 
     counter = calloc(1, sizeof(*counter));
@@ -39,8 +39,8 @@ void *swifthal_counter_open(int id) {
     return counter;
 }
 
-int swifthal_counter_close(void *arg) {
-    struct swifthal_counter *counter = arg;
+int swifthal_counter_close(const void *arg) {
+    struct swifthal_counter *counter = (struct swifthal_counter *)arg;
 
     if (counter) {
         free(counter);
@@ -50,52 +50,53 @@ int swifthal_counter_close(void *arg) {
     return -EINVAL;
 }
 
-unsigned int swifthal_counter_read(void *arg) {
-    struct swifthal_counter *counter = arg;
+int swifthal_counter_read(const void *arg, uint32_t *ticks) {
+    const struct swifthal_counter *counter = arg;
     struct timespec tp;
-    unsigned long long us;
+    unsigned long us;
+
+    *ticks = 0;
 
     if (counter == NULL)
-        return 0;
+        return -EINVAL;
 
     if (clock_gettime(counter->clockid, &tp) < 0)
-        return 0;
+        return -errno;
 
     us = tp.tv_sec * USEC_PER_SEC;
     us += tp.tv_nsec / NSEC_PER_USEC;
 
-    return swifthal_counter_us_to_ticks(counter, us);
+    *ticks = swifthal_counter_us_to_ticks(counter, us);
+    return 0;
 }
 
-int swifthal_counter_add_callback(void *arg,
+int swifthal_counter_add_callback(const void *arg,
                                   const void *user_data,
-                                  void (*callback)(unsigned int,
+                                  void (*callback)(uint32_t,
                                                    const void *)) {
     return -ENOSYS;
 }
 
-unsigned int swifthal_counter_freq(void *arg) { return 0; }
+uint32_t swifthal_counter_freq(const void *arg) { return 0; }
 
-unsigned long long int swifthal_counter_ticks_to_us(void *arg,
-                                                    unsigned int ticks) {
+uint64_t swifthal_counter_ticks_to_us(const void *arg, uint32_t ticks) {
     return 0;
 }
 
-unsigned int swifthal_counter_us_to_ticks(void *arg,
-                                          unsigned long long int us) {
+uint32_t swifthal_counter_us_to_ticks(const void *arg, uint64_t us) {
     return 0;
 }
 
-unsigned int swifthal_counter_get_max_top_value(void *arg) { return UINT_MAX; }
+uint32_t swifthal_counter_get_max_top_value(const void *arg) { return UINT_MAX; }
 
-int swifthal_counter_set_channel_alarm(void *arg, unsigned int ticks) {
+int swifthal_counter_set_channel_alarm(const void *arg, uint32_t ticks) {
     return -ENOSYS;
 }
 
-int swifthal_counter_cancel_channel_alarm(void *arg) { return -ENOSYS; }
+int swifthal_counter_cancel_channel_alarm(const void *arg) { return -ENOSYS; }
 
-int swifthal_counter_start(void *arg) { return -ENOSYS; }
+int swifthal_counter_start(const void *arg) { return -ENOSYS; }
 
-int swifthal_counter_stop(void *arg) { return -ENOSYS; }
+int swifthal_counter_stop(const void *arg) { return -ENOSYS; }
 
 int swifthal_counter_dev_number_get(void) { return 0; }

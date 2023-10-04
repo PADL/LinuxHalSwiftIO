@@ -45,7 +45,7 @@ static void *swifthal_os_task__start(void *arg) {
     return NULL;
 }
 
-void *swifthal_os_task_create(const char *name,
+void *swifthal_os_task_create(char *name,
                               swifthal_task fn,
                               void *p1,
                               void *p2,
@@ -92,7 +92,7 @@ struct swifthal_os_task__mqueue {
 static _Atomic(uintptr_t) mq_id = 0;
 #endif
 
-void *swifthal_os_mq_create(int mq_size, int mq_num) {
+const void *swifthal_os_mq_create(ssize_t mq_size, ssize_t mq_num) {
 #ifdef __linux__
     struct swifthal_os_task__mqueue *mq = calloc(1, sizeof(*mq));
     struct mq_attr attr;
@@ -121,9 +121,9 @@ void *swifthal_os_mq_create(int mq_size, int mq_num) {
 #endif
 }
 
-int swifthal_os_mq_destory(void *mp) {
+int swifthal_os_mq_destroy(const void *mp) {
 #ifdef __linux__
-    struct swifthal_os_task__mqueue *mq = mp;
+    struct swifthal_os_task__mqueue *mq = (struct swifthal_os_task__mqueue *)mp;
 
     if (mq) {
         if (mq_close(mq->mq) != 0 || mq_unlink(mq->name) != 0)
@@ -149,9 +149,9 @@ static struct timespec *swifthal_timeout_to_timespec(int timeout,
     return ts;
 }
 
-int swifthal_os_mq_send(void *mp, void *data, int timeout) {
+int swifthal_os_mq_send(const void *mp, const void *data, int timeout) {
 #ifdef __linux__
-    struct swifthal_os_task__mqueue *mq = mp;
+    const struct swifthal_os_task__mqueue *mq = mp;
 
     if (timeout == -1) {
         if (mq_send(mq->mq, data, mq->mq_size, 0) != 0)
@@ -171,9 +171,9 @@ int swifthal_os_mq_send(void *mp, void *data, int timeout) {
 #endif
 }
 
-int swifthal_os_mq_recv(void *mp, void *data, int timeout) {
+int swifthal_os_mq_recv(const void *mp, void *data, int timeout) {
 #ifdef __linux__
-    struct swifthal_os_task__mqueue *mq = mp;
+    const struct swifthal_os_task__mqueue *mq = mp;
     unsigned int prio;
 
     if (timeout == -1) {
@@ -194,9 +194,9 @@ int swifthal_os_mq_recv(void *mp, void *data, int timeout) {
 #endif
 }
 
-int swifthal_os_mq_purge(void *mp) {
+int swifthal_os_mq_purge(const void *mp) {
 #ifdef __linux__
-    struct swifthal_os_task__mqueue *mq = mp;
+    const struct swifthal_os_task__mqueue *mq = mp;
     struct mq_attr attr;
     unsigned int prio;
     void *data;
@@ -218,7 +218,7 @@ int swifthal_os_mq_purge(void *mp) {
 #endif
 }
 
-void *swifthal_os_mutex_create(void) {
+const void *swifthal_os_mutex_create(void) {
     pthread_mutex_t *mutex = calloc(1, sizeof(*mutex));
     if (mutex == NULL)
         return NULL;
@@ -230,7 +230,8 @@ void *swifthal_os_mutex_create(void) {
     return mutex;
 }
 
-int swifthal_os_mutex_destroy(void *mutex) {
+int swifthal_os_mutex_destroy(const void *arg) {
+    pthread_mutex_t *mutex = (pthread_mutex_t *)arg;
     int err;
 
     if (mutex) {
@@ -244,11 +245,11 @@ int swifthal_os_mutex_destroy(void *mutex) {
     return -EINVAL;
 }
 
-int swifthal_os_mutex_lock(void *mutex, int timeout) {
+int swifthal_os_mutex_lock(const void *mutex, int timeout) {
     int err;
 
     if (timeout == -1) {
-        err = pthread_mutex_lock(mutex);
+        err = pthread_mutex_lock((pthread_mutex_t *)mutex);
         if (err)
             return -err;
     } else {
@@ -257,7 +258,7 @@ int swifthal_os_mutex_lock(void *mutex, int timeout) {
 
         swifthal_timeout_to_timespec(timeout, &ts);
 
-        err = pthread_mutex_timedlock(mutex, &ts);
+        err = pthread_mutex_timedlock((pthread_mutex_t *)mutex, &ts);
         if (err)
             return -err;
 #else
@@ -268,10 +269,10 @@ int swifthal_os_mutex_lock(void *mutex, int timeout) {
     return 0;
 }
 
-int swifthal_os_mutex_unlock(void *mutex) {
+int swifthal_os_mutex_unlock(const void *mutex) {
     int err;
 
-    err = pthread_mutex_unlock(mutex);
+    err = pthread_mutex_unlock((pthread_mutex_t *)mutex);
     if (err)
         return -err;
 
@@ -284,7 +285,7 @@ struct swifthal_os_task__semaphore {
     int limit;
 };
 
-void *swifthal_os_sem_create(unsigned int init_cnt, unsigned int limit) {
+const void *swifthal_os_sem_create(uint32_t init_cnt, uint32_t limit) {
     struct swifthal_os_task__semaphore *sem;
 
     if (init_cnt > INT_MAX || limit > INT_MAX)
@@ -303,8 +304,8 @@ void *swifthal_os_sem_create(unsigned int init_cnt, unsigned int limit) {
     return sem;
 }
 
-int swifthal_os_sem_destroy(void *arg) {
-    struct swifthal_os_task__semaphore *sem = arg;
+int swifthal_os_sem_destroy(const void *arg) {
+    struct swifthal_os_task__semaphore *sem = (struct swifthal_os_task__semaphore *)arg;
 
     if (sem) {
         if (sem_destroy(&sem->sem) != 0)
@@ -316,8 +317,8 @@ int swifthal_os_sem_destroy(void *arg) {
     return -EINVAL;
 }
 
-int swifthal_os_sem_take(void *arg, int timeout) {
-    struct swifthal_os_task__semaphore *sem = arg;
+int swifthal_os_sem_take(const void *arg, int timeout) {
+    struct swifthal_os_task__semaphore *sem = (struct swifthal_os_task__semaphore *)arg;
 
     if (timeout == -1) {
         if (sem_wait(&sem->sem) != 0)
@@ -338,8 +339,8 @@ int swifthal_os_sem_take(void *arg, int timeout) {
     return 0;
 }
 
-int swifthal_os_sem_give(void *arg) {
-    struct swifthal_os_task__semaphore *sem = arg;
+int swifthal_os_sem_give(const void *arg) {
+    struct swifthal_os_task__semaphore *sem = (struct swifthal_os_task__semaphore *)arg;
 
     if (sem_post(&sem->sem) != 0)
         return -errno;
@@ -347,8 +348,8 @@ int swifthal_os_sem_give(void *arg) {
     return 0;
 }
 
-int swifthal_os_sem_reset(void *arg) {
-    struct swifthal_os_task__semaphore *sem = arg;
+int swifthal_os_sem_reset(const void *arg) {
+    struct swifthal_os_task__semaphore *sem = (struct swifthal_os_task__semaphore *)arg;
     int value;
 
     if (sem_getvalue(&sem->sem, &value) != 0)

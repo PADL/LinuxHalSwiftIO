@@ -30,7 +30,7 @@ struct swifthal_timer {
     _Atomic(unsigned int) status;
 };
 
-void *swifthal_timer_open(void) {
+const void *swifthal_timer_open(void) {
     struct swifthal_timer *timer = calloc(1, sizeof(*timer));
 
     if (timer == NULL)
@@ -48,8 +48,8 @@ void *swifthal_timer_open(void) {
     return timer;
 }
 
-int swifthal_timer_close(void *arg) {
-    struct swifthal_timer *timer = arg;
+int swifthal_timer_close(const void *arg) {
+    struct swifthal_timer *timer = (struct swifthal_timer *)arg;
 
     if (timer) {
         dispatch_source_cancel(timer->source);
@@ -61,8 +61,8 @@ int swifthal_timer_close(void *arg) {
     return -EINVAL;
 }
 
-int swifthal_timer_start(void *arg, swift_timer_type_t type, int period) {
-    struct swifthal_timer *timer = arg;
+int swifthal_timer_start(const void *arg, swift_timer_type_t type, ssize_t period) {
+    const struct swifthal_timer *timer = arg;
 
     if (timer) {
         uint64_t interval = NSEC_PER_MSEC * period;
@@ -78,8 +78,8 @@ int swifthal_timer_start(void *arg, swift_timer_type_t type, int period) {
     return -EINVAL;
 }
 
-int swifthal_timer_stop(void *arg) {
-    struct swifthal_timer *timer = arg;
+int swifthal_timer_stop(const void *arg) {
+    const struct swifthal_timer *timer = arg;
 
     if (timer) {
         dispatch_source_cancel(timer->source);
@@ -88,10 +88,10 @@ int swifthal_timer_stop(void *arg) {
     return -EINVAL;
 }
 
-int swifthal_timer_add_callback(void *arg,
+int swifthal_timer_add_callback(const void *arg,
                                 const void *param,
                                 void (*callback)(const void *)) {
-    struct swifthal_timer *timer = arg;
+    struct swifthal_timer *timer = (struct swifthal_timer *)arg;
 
     if (timer) {
         dispatch_source_set_event_handler(timer->source, ^{
@@ -106,8 +106,8 @@ int swifthal_timer_add_callback(void *arg,
     return -EINVAL;
 }
 
-unsigned int swifthal_timer_status_get(void *arg) {
-    struct swifthal_timer *timer = arg;
+uint32_t swifthal_timer_status_get(const void *arg) {
+    struct swifthal_timer *timer = (struct swifthal_timer *)arg;
 
     if (timer) {
         unsigned int status = atomic_exchange(&timer->status, 0);

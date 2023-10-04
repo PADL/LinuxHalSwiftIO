@@ -22,17 +22,17 @@
 
 #include "swift_hal_internal.h"
 
-void *swifthal_pwm_open(int id) { return NULL; }
+const void *swifthal_pwm_open(int id) { return NULL; }
 
-int swifthal_pwm_close(void *pwm) { return -ENOSYS; }
+int swifthal_pwm_close(const void *pwm) { return -ENOSYS; }
 
-int swifthal_pwm_set(void *pwm, int period, int pulse) { return -ENOSYS; }
+int swifthal_pwm_set(const void *pwm, ssize_t period, ssize_t pulse) { return -ENOSYS; }
 
-int swifthal_pwm_suspend(void *pwm) { return -ENOSYS; }
+int swifthal_pwm_suspend(const void *pwm) { return -ENOSYS; }
 
-int swifthal_pwm_resume(void *pwm) { return -ENOSYS; }
+int swifthal_pwm_resume(const void *pwm) { return -ENOSYS; }
 
-int swifthal_pwm_info_get(void *pwm, swift_pwm_info_t *info) {
+int swifthal_pwm_info_get(const void *pwm, swift_pwm_info_t *info) {
     memset(info, 0, sizeof(*info));
     return -ENOSYS;
 }

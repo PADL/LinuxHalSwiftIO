@@ -22,14 +22,14 @@
 
 #include "swift_hal_internal.h"
 
-void *swifthal_adc_open(int id) { return NULL; }
+const void *swifthal_adc_open(int id) { return NULL; }
 
-int swifthal_adc_close(void *adc) { return -ENOSYS; }
+int swifthal_adc_close(const void *adc) { return -ENOSYS; }
 
-int swifthal_adc_read(void *adc, unsigned short *sample_buffer) {
+int swifthal_adc_read(const void *adc, uint16_t *sample_buffer) {
     return -ENOSYS;
 }
 
-int swifthal_adc_info_get(void *adc, swift_adc_info_t *info) { return -ENOSYS; }
+int swifthal_adc_info_get(const void *adc, swift_adc_info_t *info) { return -ENOSYS; }
 
 int swifthal_adc_dev_number_get(void) { return 0; }
