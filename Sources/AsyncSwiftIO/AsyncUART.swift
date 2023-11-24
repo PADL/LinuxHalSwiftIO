@@ -21,6 +21,13 @@ import IORing
 import LinuxHalSwiftIO
 import SwiftIO
 
+private extension UART {
+    func getFileDescriptor() -> CInt {
+        guard let obj = getObj(self) else { return -1 }
+        return swifthal_uart_get_fd(obj)
+    }
+}
+
 public actor AsyncUART: CustomStringConvertible {
     private let ring: IORing
     private let uart: UART
@@ -32,11 +39,11 @@ public actor AsyncUART: CustomStringConvertible {
     }
 
     public init(with uart: UART) throws {
-        self.ring = IORing.shared
+        ring = IORing.shared
         self.uart = uart
-        self.fd = try FileHandle(fileDescriptor: swifthal_uart_get_fd(uart.obj))
+        fd = try FileHandle(fileDescriptor: uart.getFileDescriptor())
         var cfg = swift_uart_cfg_t()
-        swifthal_uart_config_get(uart.obj, &cfg)
+        swifthal_uart_config_get(getObj(uart), &cfg)
         readBufferLength = Int(cfg.read_buf_len)
     }
 

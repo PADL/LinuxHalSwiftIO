@@ -21,6 +21,13 @@ import IORing
 import LinuxHalSwiftIO
 import SwiftIO
 
+private extension I2C {
+    func getFileDescriptor() -> CInt {
+        guard let obj = getObj(self) else { return -1 }
+        return swifthal_i2c_get_fd(obj)
+    }
+}
+
 public actor AsyncI2C: CustomStringConvertible {
     private let ring: IORing
     private let i2c: I2C
@@ -31,9 +38,9 @@ public actor AsyncI2C: CustomStringConvertible {
     }
 
     public init(with i2c: I2C) throws {
-        self.ring = IORing.shared
+        ring = IORing.shared
         self.i2c = i2c
-        self.fd = try FileHandle(fileDescriptor: swifthal_i2c_get_fd(i2c.obj))
+        fd = try FileHandle(fileDescriptor: i2c.getFileDescriptor())
     }
 
     public func write(_ data: [UInt8]) async throws {

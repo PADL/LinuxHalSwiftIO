@@ -19,6 +19,13 @@ import IORing
 import LinuxHalSwiftIO
 import SwiftIO
 
+private extension SPI {
+    func getFileDescriptor() -> CInt {
+        guard let obj = getObj(self) else { return -1 }
+        return swifthal_spi_get_fd(obj)
+    }
+}
+
 public actor AsyncSPI: CustomStringConvertible {
     private let ring: IORing
     private let spi: SPI
@@ -38,10 +45,14 @@ public actor AsyncSPI: CustomStringConvertible {
     }
 
     // TODO: move data available pin into SPI library
-    public init(with spi: SPI, blockSize: Int? = nil, dataAvailableInput: DigitalIn? = nil) async throws {
-        self.ring = try IORing()
+    public init(
+        with spi: SPI,
+        blockSize: Int? = nil,
+        dataAvailableInput: DigitalIn? = nil
+    ) async throws {
+        ring = try IORing()
         self.spi = spi
-        self.fd = try FileHandle(fileDescriptor: swifthal_spi_get_fd(spi.obj))
+        fd = try FileHandle(fileDescriptor: spi.getFileDescriptor())
         self.blockSize = blockSize
         self.dataAvailableInput = dataAvailableInput
 
@@ -90,7 +101,7 @@ public actor AsyncSPI: CustomStringConvertible {
 
         try await dataAvailable()
         return try await ring.readFixed(count: blockSize, bufferIndex: 1, from: fd) {
-          Array($0)
+            Array($0)
         }
     }
 

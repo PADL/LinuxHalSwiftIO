@@ -13,6 +13,20 @@
 import struct IORing.Errno
 import struct SwiftIO.Errno
 
+func getObj(_ self: AnyObject) -> UnsafeMutableRawPointer? {
+    let mirror = Mirror(reflecting: self)
+    var obj: UnsafeMutableRawPointer?
+
+    for case let (label?, value) in mirror.children {
+        if label == "obj" {
+            obj = value as? UnsafeMutableRawPointer
+            break
+        }
+    }
+
+    return obj
+}
+
 @inlinable
 func validateLength(
     _ array: [UInt8],
