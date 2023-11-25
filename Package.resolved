@@ -50,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/madmachineio/SwiftIO",
       "state" : {
-        "branch" : "fix/minor_api_modify",
-        "revision" : "3ffaf9e3b185fc378e425a122e037fc0577783ce"
+        "branch" : "main",
+        "revision" : "3b12fd30f73955d7141627a3eb03bf3dffb64292"
       }
     }
   ],
