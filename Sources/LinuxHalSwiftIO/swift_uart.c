@@ -124,7 +124,13 @@ int swifthal_uart_baudrate_set(void *arg, ssize_t baudrate) {
     if (ioctl(uart->fd, TCGETS2, &tty) < 0)
         return -errno;
 
-    tty.c_ispeed = tty.c_ospeed = baudrate;
+    tty.c_cflag &= ~(CBAUD);
+    tty.c_cflag |= BOTHER;
+    tty.c_ospeed = baudrate;
+
+    tty.c_cflag &= ~(CBAUD << IBSHIFT);
+    tty.c_cflag |= BOTHER << IBSHIFT;
+    tty.c_ispeed = baudrate;
 
     if (ioctl(uart->fd, TCSETS2, &tty) < 0)
         return -errno;
