@@ -50,15 +50,16 @@ public actor AsyncSPI: CustomStringConvertible {
         blockSize: Int? = nil,
         dataAvailableInput: DigitalIn? = nil
     ) async throws {
-        ring = try IORing()
         self.spi = spi
         fd = try FileHandle(fileDescriptor: spi.getFileDescriptor())
         self.blockSize = blockSize
         self.dataAvailableInput = dataAvailableInput
 
         if let blockSize {
-            // FIXME: this isn't very friendly to other IORing instances
+            ring = try IORing()
             try await ring.registerFixedBuffers(count: 2, size: blockSize)
+        } else {
+            ring = IORing.shared
         }
 
         if let dataAvailableInput {
