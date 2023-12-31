@@ -27,6 +27,7 @@
 struct swifthal_gpio {
     swift_gpio_direction_t direction;
     swift_gpio_mode_t io_mode;
+    swift_gpio_int_mode_t int_mode;
 #ifdef __linux__
     struct gpiod_chip *chip;
     struct gpiod_line *line;
@@ -247,6 +248,8 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
     if (gpio->source == NULL)
         return -ENOMEM;
 
+    gpio->int_mode = int_mode;
+
     return 0;
 #else
     return -ENOSYS;
@@ -264,44 +267,39 @@ static int swifthal_gpio__set_handler(void *arg, void (^handler)(void)) {
     return 0;
 }
 
-#if 0
-int swifthal_gpio__event_read(void *arg, bool *rising_edge) {
-    struct swifthal_gpio *gpio = arg;
-    struct gpiod_line_event event;
-
-    *rising_edge = false;
-
-    if (gpio == NULL ||
-        gpiod_line_direction(gpio->line) != GPIOD_LINE_DIRECTION_INPUT)
-        return -EINVAL;
-
-    if (gpiod_line_event_read(gpio->line, &event) < 0)
-        return -errno;
-
-    *rising_edge = event.event_type == GPIOD_LINE_EVENT_RISING_EDGE;
-
-    return 0;
-}
-#endif
-
 int swifthal_gpio_interrupt_callback_install(void *arg,
                                              const void *param,
                                              void (*callback)(const void *)) {
     return swifthal_gpio__set_handler(arg, ^{
-#if 0
-        struct gpiod_line_event event;
+        const struct swifthal_gpio *gpio = arg;
         int fd = dispatch_source_get_handle(gpio->source);
+        struct gpiod_line_event event;
+        int handle_event;
 
         memset(&event, 0, sizeof(event));
 
-        // FIXME: should we be reading here or does the caller do it?
-        if (gpiod_line_direction(gpio->line) == GPIOD_LINE_DIRECTION_INPUT &&
-            gpiod_line_event_read_fd(fd, &event) < 0) {
+        if (gpiod_line_event_read_fd(fd, &event) < 0) {
             dispatch_source_cancel(gpio->source);
             return;
         }
-#endif
-      callback(param);
+
+        switch (gpio->int_mode) {
+        case SWIFT_GPIO_INT_MODE_RISING_EDGE:
+            handle_event = (event.event_type == GPIOD_LINE_EVENT_RISING_EDGE);
+            break;
+        case SWIFT_GPIO_INT_MODE_FALLING_EDGE:
+            handle_event = (event.event_type == GPIOD_LINE_EVENT_FALLING_EDGE);
+            break;
+        case SWIFT_GPIO_INT_MODE_BOTH_EDGE:
+            handle_event = (event.event_type != 0);
+            break;
+        default:
+            handle_event = 0;
+            break;
+        }
+
+        if (handle_event)
+            callback(param);
     });
 }
 

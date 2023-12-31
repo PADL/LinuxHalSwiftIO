@@ -64,9 +64,7 @@ public actor AsyncSPI: CustomStringConvertible {
 
         if let dataAvailableInput {
             dataAvailableInput.setInterrupt(.rising) {
-                if dataAvailableInput.read() {
-                    Task { await self.resumeWaiters() }
-                }
+                Task { await self.resumeWaiters() }
             }
         }
     }
@@ -116,10 +114,6 @@ public actor AsyncSPI: CustomStringConvertible {
 
     private func dataAvailable() async throws {
         guard let dataAvailableInput else {
-            return
-        }
-
-        if dataAvailableInput.read() {
             return
         }
 
