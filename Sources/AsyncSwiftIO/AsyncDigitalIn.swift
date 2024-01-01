@@ -39,6 +39,7 @@ public extension DigitalIn {
             continuation.onTermination = { @Sendable _ in
                 self.disableInterrupt()
             }
+            self.enableInterrupt()
         }
     }
 }
