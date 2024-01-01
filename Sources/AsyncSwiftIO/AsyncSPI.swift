@@ -113,7 +113,7 @@ public actor AsyncSPI: CustomStringConvertible {
     }
 
     private func dataAvailable() async throws {
-        guard let dataAvailableInput else {
+        guard let dataAvailableInput, !dataAvailableInput.read() else {
             return
         }
 
