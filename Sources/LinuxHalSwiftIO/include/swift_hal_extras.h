@@ -24,6 +24,9 @@
 
 int swifthal_gpio_get_fd(const void * _Nonnull gpio);
 
+int swifthal_gpio_interrupt_callback_install_block(void * _Nonnull gpio,
+                                                   void (^ _Nonnull)(uint8_t));
+
 ///
 /// I2C
 ///
