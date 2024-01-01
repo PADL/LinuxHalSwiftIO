@@ -256,22 +256,15 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
 #endif
 }
 
-static int swifthal_gpio__set_handler(void *arg, void (^handler)(void)) {
+int swifthal_gpio_interrupt_callback_install(void *arg,
+                                             const void *param,
+                                             void (*callback)(const void *)) {
     const struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL || gpio->source == NULL)
         return -EINVAL;
 
-    dispatch_source_set_event_handler(gpio->source, handler);
-
-    return 0;
-}
-
-int swifthal_gpio_interrupt_callback_install(void *arg,
-                                             const void *param,
-                                             void (*callback)(const void *)) {
-    return swifthal_gpio__set_handler(arg, ^{
-        const struct swifthal_gpio *gpio = arg;
+    dispatch_source_set_event_handler(gpio->source, ^{
         int fd = dispatch_source_get_handle(gpio->source);
         struct gpiod_line_event event;
         int handle_event;
@@ -301,6 +294,8 @@ int swifthal_gpio_interrupt_callback_install(void *arg,
         if (handle_event)
             callback(param);
     });
+
+    return 0;
 }
 
 int swifthal_gpio_interrupt_callback_uninstall(void *arg) {
