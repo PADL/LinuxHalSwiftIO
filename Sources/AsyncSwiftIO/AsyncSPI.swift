@@ -31,41 +31,27 @@ public actor AsyncSPI: CustomStringConvertible {
     private let spi: SPI
     private let fd: FileHandle
     private let blockSize: Int?
-    private let dataAvailableInput: DigitalIn?
 
     private typealias Continuation = CheckedContinuation<(), Error>
-    private var waiters = Queue<Continuation>()
 
     public nonisolated var description: String {
-        if let dataAvailableInput {
-            return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize ?? 0), dataAvailableInput: \(dataAvailableInput))"
-        } else {
-            return "\(type(of: self))(spi: \(spi), blockSize: \(blockSize ?? 0))"
-        }
+        "\(type(of: self))(spi: \(spi), blockSize: \(blockSize ?? 0))"
     }
 
     // TODO: move data available pin into SPI library
     public init(
         with spi: SPI,
-        blockSize: Int? = nil,
-        dataAvailableInput: DigitalIn? = nil
+        blockSize: Int? = nil
     ) async throws {
         self.spi = spi
         fd = try FileHandle(fileDescriptor: spi.getFileDescriptor())
         self.blockSize = blockSize
-        self.dataAvailableInput = dataAvailableInput
 
         if let blockSize {
             ring = try IORing()
             try await ring.registerFixedBuffers(count: 2, size: blockSize)
         } else {
             ring = IORing.shared
-        }
-
-        if let dataAvailableInput {
-            dataAvailableInput.setInterrupt(.rising) {
-                Task { await self.resumeWaiters() }
-            }
         }
     }
 
@@ -76,9 +62,7 @@ public actor AsyncSPI: CustomStringConvertible {
     }
 
     public func read(_ count: Int) async throws -> [UInt8] {
-        try await dataAvailable()
-
-        return try await rethrowingIORingErrno { [self] in
+        try await rethrowingIORingErrno { [self] in
             try await ring.read(count: count, from: fd)
         }
     }
@@ -98,7 +82,6 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        try await dataAvailable()
         return try await ring.readFixed(count: blockSize, bufferIndex: 1, from: fd) {
             Array($0)
         }
@@ -110,27 +93,5 @@ public actor AsyncSPI: CustomStringConvertible {
         }
 
         try await ring.writeReadFixed(&block, count: blockSize, bufferIndex: 0, fd: fd)
-    }
-
-    private func dataAvailable() async throws {
-        guard let dataAvailableInput, !dataAvailableInput.read() else {
-            return
-        }
-
-        try await withCheckedThrowingContinuation { waiter in
-            waiters.enqueue(waiter)
-        }
-    }
-
-    private func resumeWaiters() async {
-        while let waiter = waiters.dequeue() {
-            waiter.resume()
-        }
-    }
-
-    deinit {
-        while let waiter = waiters.dequeue() {
-            waiter.resume(throwing: SwiftIO.Errno.canceled)
-        }
     }
 }

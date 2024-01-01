@@ -91,19 +91,3 @@ func rethrowingIORingErrno<T>(_ body: @escaping () async throws -> T) async reth
         throw SwiftIO.Errno(rawValue: error.rawValue)
     }
 }
-
-struct Queue<T> {
-    private var storage = [T]()
-
-    mutating func enqueue(_ element: T) {
-        storage.append(element)
-    }
-
-    mutating func dequeue() -> T? {
-        guard !storage.isEmpty else {
-            return nil
-        }
-
-        return storage.removeFirst()
-    }
-}
