@@ -20,6 +20,15 @@ import Foundation
 import LinuxHalSwiftIO
 import SwiftIO
 
+//
+// maps GPIO interrupts (events in Linux parlance) to an async stream of
+// (Bool, Date) tuples indicating whether a rising edge was received and
+// an approximate timestamp, respectively.
+//
+// This is not safe to use with the SwiftIO DigitalIn callback API as only
+// a single callback can be registered at a time. Choose one.
+//
+
 private func getInterruptModeRawValue(
     _ mode: DigitalIn.InterruptMode
 ) -> swift_gpio_int_mode_t {
@@ -70,16 +79,9 @@ public extension DigitalIn {
     typealias InterruptStream = AsyncThrowingRemoveDuplicatesSequence<AsyncThrowingStream<Interrupt, Error>>
 
     var interrupts: InterruptStream {
-        getInterrupts(.bothEdge)
-    }
-
-    func getInterrupts(
-        _ mode: DigitalIn
-            .InterruptMode
-    ) -> InterruptStream {
         AsyncThrowingStream { continuation in
             do {
-                try _setInterruptBlock(mode) { risingEdge, ts in
+                try _setInterruptBlock(.bothEdge) { risingEdge, ts in
                     let timeInterval = TimeInterval(ts.tv_sec + ts.tv_nsec / 1_000_000_000)
                     continuation.yield((risingEdge != 0, Date(timeIntervalSince1970: timeInterval)))
                 }
@@ -91,5 +93,15 @@ public extension DigitalIn {
             }
             try! self._enableInterrupt()
         }.removeDuplicates { $0.0 == $1.0 }
+    }
+
+    typealias EdgeInterruptStream = AsyncMapSequence<AsyncFilterSequence<InterruptStream>, Date>
+
+    var risingEdgeInterrupts: EdgeInterruptStream {
+        interrupts.filter { $0.0 }.map { $0.1 }
+    }
+
+    var fallingEdgeInterrupts: EdgeInterruptStream {
+        interrupts.filter { $0.0 }.map { $0.1 }
     }
 }
