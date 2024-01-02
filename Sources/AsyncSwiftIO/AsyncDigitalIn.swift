@@ -18,10 +18,28 @@ import CSwiftIO
 import LinuxHalSwiftIO
 import SwiftIO
 
+private func getInterruptModeRawValue(
+    _ mode: DigitalIn.InterruptMode
+) -> swift_gpio_int_mode_t {
+    switch mode {
+    case .rising:
+        return SWIFT_GPIO_INT_MODE_RISING_EDGE
+    case .falling:
+        return SWIFT_GPIO_INT_MODE_FALLING_EDGE
+    case .bothEdge:
+        return SWIFT_GPIO_INT_MODE_BOTH_EDGE
+    }
+}
+
 private extension DigitalIn {
-    func interruptCallbackInstall(_ callback: @escaping (UInt8) -> ()) throws {
+    func setInterruptBlock(
+        _ mode: DigitalIn.InterruptMode,
+        callback: @escaping (UInt8) -> ()
+    ) throws {
         guard let obj = getObj(self) else { throw Errno.invalidArgument }
-        let err = swifthal_gpio_interrupt_callback_install_block(obj, callback)
+        var err = swifthal_gpio_interrupt_config(obj, getInterruptModeRawValue(mode))
+        guard err == 0 else { throw Errno(err) }
+        err = swifthal_gpio_interrupt_callback_install_block(obj, callback)
         guard err == 0 else { throw Errno(err) }
     }
 }
@@ -30,7 +48,7 @@ public extension DigitalIn {
     var interrupts: AsyncThrowingStream<Bool, Error> {
         AsyncThrowingStream { continuation in
             do {
-                try interruptCallbackInstall { risingEdge in
+                try setInterruptBlock(.bothEdge) { risingEdge in
                     continuation.yield(risingEdge != 0)
                 }
             } catch {
