@@ -30,7 +30,7 @@ struct swifthal_gpio {
     swift_gpio_direction_t direction;
     swift_gpio_mode_t io_mode;
     swift_gpio_int_mode_t int_mode;
-    void (^block)(uint8_t);
+    void (^block)(uint8_t, struct timespec);
 #ifdef __linux__
     struct gpiod_chip *chip;
     struct gpiod_line *line;
@@ -262,7 +262,7 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
 }
 
 int swifthal_gpio_interrupt_callback_install_block(
-    void *arg, void (^block)(uint8_t risingEdge)) {
+    void *arg, void (^block)(uint8_t risingEdge, struct timespec ts)) {
     struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL || gpio->source == NULL)
@@ -275,7 +275,6 @@ int swifthal_gpio_interrupt_callback_install_block(
     dispatch_source_set_event_handler(gpio->source, ^{
       int fd = dispatch_source_get_handle(gpio->source);
       struct gpiod_line_event event;
-      int handle_event;
 
       memset(&event, 0, sizeof(event));
 
@@ -284,23 +283,7 @@ int swifthal_gpio_interrupt_callback_install_block(
           return;
       }
 
-      switch (gpio->int_mode) {
-      case SWIFT_GPIO_INT_MODE_RISING_EDGE:
-          handle_event = (event.event_type == GPIOD_LINE_EVENT_RISING_EDGE);
-          break;
-      case SWIFT_GPIO_INT_MODE_FALLING_EDGE:
-          handle_event = (event.event_type == GPIOD_LINE_EVENT_FALLING_EDGE);
-          break;
-      case SWIFT_GPIO_INT_MODE_BOTH_EDGE:
-          handle_event = (event.event_type != 0);
-          break;
-      default:
-          handle_event = 0;
-          break;
-      }
-
-      if (handle_event)
-          gpio->block(event.event_type == GPIOD_LINE_EVENT_RISING_EDGE);
+      gpio->block(event.event_type == GPIOD_LINE_EVENT_RISING_EDGE, event.ts);
     });
 
     return 0;
@@ -310,7 +293,7 @@ int swifthal_gpio_interrupt_callback_install(void *arg,
                                              const void *param,
                                              void (*callback)(const void *)) {
     return swifthal_gpio_interrupt_callback_install_block(
-        arg, ^(uint8_t risingEdge) {
+        arg, ^(uint8_t risingEdge, struct timespec ts) {
           callback(param);
         });
 }

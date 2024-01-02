@@ -15,6 +15,7 @@
 //
 
 import CSwiftIO
+import Foundation
 import LinuxHalSwiftIO
 import SwiftIO
 
@@ -40,7 +41,7 @@ private extension DigitalIn {
 
     func _setInterruptBlock(
         _ mode: DigitalIn.InterruptMode,
-        callback: @escaping (UInt8) -> ()
+        callback: @escaping (UInt8, timespec) -> ()
     ) throws {
         try withObj { obj in
             swifthal_gpio_interrupt_config(obj, getInterruptModeRawValue(mode))
@@ -64,11 +65,19 @@ private extension DigitalIn {
 }
 
 public extension DigitalIn {
-    var interrupts: AsyncThrowingStream<Bool, Error> {
+    var interrupts: AsyncThrowingStream<(Bool, Date), Error> {
+        getInterrupts(.bothEdge)
+    }
+
+    func getInterrupts(
+        _ mode: DigitalIn
+            .InterruptMode
+    ) -> AsyncThrowingStream<(Bool, Date), Error> {
         AsyncThrowingStream { continuation in
             do {
-                try _setInterruptBlock(.bothEdge) { risingEdge in
-                    continuation.yield(risingEdge != 0)
+                try _setInterruptBlock(mode) { risingEdge, ts in
+                    let timeInterval = TimeInterval(ts.tv_sec + ts.tv_nsec / 1_000_000_000)
+                    continuation.yield((risingEdge != 0, Date(timeIntervalSince1970: timeInterval)))
                 }
             } catch {
                 continuation.finish(throwing: error)
