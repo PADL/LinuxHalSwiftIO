@@ -66,16 +66,17 @@ private extension DigitalIn {
 }
 
 public extension DigitalIn {
-    typealias Event = (Bool, Date) // is rising and timestamp
+    typealias Interrupt = (Bool, Date) // is rising and timestamp
+    typealias InterruptStream = AsyncThrowingRemoveDuplicatesSequence<AsyncThrowingStream<Interrupt, Error>>
 
-    var interrupts: AsyncThrowingRemoveDuplicatesSequence<AsyncThrowingStream<Event, Error>> {
+    var interrupts: InterruptStream {
         getInterrupts(.bothEdge)
     }
 
     func getInterrupts(
         _ mode: DigitalIn
             .InterruptMode
-    ) -> AsyncThrowingRemoveDuplicatesSequence<AsyncThrowingStream<Event, Error>> {
+    ) -> InterruptStream {
         AsyncThrowingStream { continuation in
             do {
                 try _setInterruptBlock(mode) { risingEdge, ts in
