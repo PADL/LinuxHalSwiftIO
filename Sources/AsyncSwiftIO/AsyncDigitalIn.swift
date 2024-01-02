@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+import AsyncAlgorithms
 import CSwiftIO
 import Foundation
 import LinuxHalSwiftIO
@@ -65,14 +66,16 @@ private extension DigitalIn {
 }
 
 public extension DigitalIn {
-    var interrupts: AsyncThrowingStream<(Bool, Date), Error> {
+    typealias Event = (Bool, Date) // is rising and timestamp
+
+    var interrupts: AsyncThrowingRemoveDuplicatesSequence<AsyncThrowingStream<Event, Error>> {
         getInterrupts(.bothEdge)
     }
 
     func getInterrupts(
         _ mode: DigitalIn
             .InterruptMode
-    ) -> AsyncThrowingStream<(Bool, Date), Error> {
+    ) -> AsyncThrowingRemoveDuplicatesSequence<AsyncThrowingStream<Event, Error>> {
         AsyncThrowingStream { continuation in
             do {
                 try _setInterruptBlock(mode) { risingEdge, ts in
@@ -86,6 +89,6 @@ public extension DigitalIn {
                 try? self._disableInterrupt()
             }
             try! self._enableInterrupt()
-        }
+        }.removeDuplicates { $0.0 == $1.0 }
     }
 }
