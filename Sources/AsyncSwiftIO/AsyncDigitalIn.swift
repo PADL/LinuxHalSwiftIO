@@ -32,15 +32,34 @@ private func getInterruptModeRawValue(
 }
 
 private extension DigitalIn {
-    func setInterruptBlock(
+    func withObj(_ body: (_: UnsafeMutableRawPointer) -> CInt) throws {
+        guard let obj = getObj(self) else { throw SwiftIO.Errno.invalidArgument }
+        let err = body(obj)
+        guard err == 0 else { throw SwiftIO.Errno(err) }
+    }
+
+    func _setInterruptBlock(
         _ mode: DigitalIn.InterruptMode,
         callback: @escaping (UInt8) -> ()
     ) throws {
-        guard let obj = getObj(self) else { throw Errno.invalidArgument }
-        var err = swifthal_gpio_interrupt_config(obj, getInterruptModeRawValue(mode))
-        guard err == 0 else { throw Errno(err) }
-        err = swifthal_gpio_interrupt_callback_install_block(obj, callback)
-        guard err == 0 else { throw Errno(err) }
+        try withObj { obj in
+            swifthal_gpio_interrupt_config(obj, getInterruptModeRawValue(mode))
+        }
+        try withObj { obj in
+            swifthal_gpio_interrupt_callback_install_block(obj, callback)
+        }
+    }
+
+    func _enableInterrupt() throws {
+        try withObj { obj in
+            swifthal_gpio_interrupt_enable(obj)
+        }
+    }
+
+    func _disableInterrupt() throws {
+        try withObj { obj in
+            swifthal_gpio_interrupt_disable(obj)
+        }
     }
 }
 
@@ -48,16 +67,16 @@ public extension DigitalIn {
     var interrupts: AsyncThrowingStream<Bool, Error> {
         AsyncThrowingStream { continuation in
             do {
-                try setInterruptBlock(.bothEdge) { risingEdge in
+                try _setInterruptBlock(.bothEdge) { risingEdge in
                     continuation.yield(risingEdge != 0)
                 }
             } catch {
                 continuation.finish(throwing: error)
             }
             continuation.onTermination = { @Sendable _ in
-                self.disableInterrupt()
+                try? self._disableInterrupt()
             }
-            self.enableInterrupt()
+            try! self._enableInterrupt()
         }
     }
 }
