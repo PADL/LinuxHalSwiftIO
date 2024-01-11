@@ -59,6 +59,8 @@ static int swifthal_uart__enable_nbio(const struct swifthal_uart *uart) {
     return 0;
 }
 
+static int swifthal_uart__raw_set(void *arg);
+
 void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
     struct swifthal_uart *uart;
     char device[PATH_MAX + 1];
@@ -80,6 +82,8 @@ void *swifthal_uart_open(int id, const swift_uart_cfg_t *cfg) {
     uart->read_buf_len = (int)cfg->read_buf_len;
 
     err = swifthal_uart__enable_nbio(uart);
+    if (err == 0)
+        err = swifthal_uart__raw_set(uart);
     if (err == 0)
         err = swifthal_uart_baudrate_set(uart, cfg->baudrate);
     if (err == 0)
@@ -467,4 +471,29 @@ int swifthal_uart_get_fd(const void *arg) {
         return -EINVAL;
 
     return uart->fd;
+}
+
+static int swifthal_uart__raw_set(void *arg) {
+#ifdef __linux__
+    const struct swifthal_uart *uart = arg;
+    struct termios2 tty;
+
+    if (uart == NULL)
+        return -EINVAL;
+
+    if (ioctl(uart->fd, TCGETS2, &tty) < 0)
+        return -errno;
+
+    tty.c_iflag &=
+        ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
+    tty.c_oflag &= ~OPOST;
+    tty.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+
+    if (ioctl(uart->fd, TCSETS2, &tty) < 0)
+        return -errno;
+
+    return 0;
+#else
+    return -ENOSYS;
+#endif
 }
