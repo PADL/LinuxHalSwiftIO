@@ -24,12 +24,12 @@ public enum UARTDumper {
         }
 
         let uart = UART(Id(device))
-        let asyncUart = try AsyncUART(with: uart)
+        let asyncUart = try await AsyncUART(with: uart)
 
         debugPrint("Initialized async UART handle \(asyncUart)...")
 
         repeat {
-            let data = try await asyncUart.read(asyncUart.readBufferLength)
+            let data = try await asyncUart.read(asyncUart.blockSize)
             debugPrint(Data(data).hexDescription)
         } while true
     }

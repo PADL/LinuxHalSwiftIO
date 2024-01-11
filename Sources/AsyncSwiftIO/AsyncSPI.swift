@@ -55,7 +55,7 @@ public actor AsyncSPI: CustomStringConvertible {
         }
     }
 
-    public func write(_ data: [UInt8]) async throws {
+    public func write(_ data: [UInt8]) async throws -> Int {
         try await rethrowingIORingErrno { [self] in
             try await ring.write(data, to: fd)
         }
@@ -67,14 +67,12 @@ public actor AsyncSPI: CustomStringConvertible {
         }
     }
 
-    public func writeBlock(_ block: [UInt8]) async throws {
+    public func writeBlock(_ block: [UInt8]) async throws -> Int {
         guard let blockSize else {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        if try await ring.writeFixed(block, count: blockSize, bufferIndex: 0, to: fd) != blockSize {
-            throw SwiftIO.Errno.resourceTemporarilyUnavailable
-        }
+        return try await ring.writeFixed(block, count: blockSize, bufferIndex: 0, to: fd)
     }
 
     public func readBlock() async throws -> [UInt8] {

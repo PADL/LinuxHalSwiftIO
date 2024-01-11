@@ -43,7 +43,7 @@ public actor AsyncI2C: CustomStringConvertible {
         fd = try FileHandle(fileDescriptor: i2c.getFileDescriptor())
     }
 
-    public func write(_ data: [UInt8]) async throws {
+    public func write(_ data: [UInt8]) async throws -> Int {
         try await rethrowingIORingErrno { [self] in
             try await ring.write(data, to: fd)
         }

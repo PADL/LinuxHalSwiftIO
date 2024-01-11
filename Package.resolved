@@ -15,7 +15,7 @@
       "location" : "https://github.com/PADL/IORingSwift.git",
       "state" : {
         "branch" : "main",
-        "revision" : "d94ee998d54d4ed2cce65cabaa6e5b10af65750a"
+        "revision" : "04f99ca84a7fd5ddae946b833b68ecb86e6f0451"
       }
     },
     {
@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dfed/swift-async-queue",
       "state" : {
-        "revision" : "6837ecbeb394eb1fc7ec6b6a858636074309abd9",
-        "version" : "0.4.1"
+        "revision" : "2ae35d8ffb077e35c04db339f4db5fe8767bb7f7",
+        "version" : "0.5.1"
       }
     },
     {
@@ -41,8 +41,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "a902f1823a7ff3c9ab2fba0f992396b948eda307",
-        "version" : "1.0.5"
+        "revision" : "d029d9d39c87bed85b1c50adee7c41795261a192",
+        "version" : "1.0.6"
       }
     },
     {
@@ -51,7 +51,7 @@
       "location" : "https://github.com/madmachineio/SwiftIO",
       "state" : {
         "branch" : "main",
-        "revision" : "3b12fd30f73955d7141627a3eb03bf3dffb64292"
+        "revision" : "3641c4c4e1a0d0aa73435991665cddb1e6dcdfa5"
       }
     }
   ],

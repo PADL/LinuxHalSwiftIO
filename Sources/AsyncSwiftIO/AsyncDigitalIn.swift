@@ -76,7 +76,10 @@ private extension DigitalIn {
 
 public extension DigitalIn {
     typealias Interrupt = (Bool, Date) // is rising and timestamp
-    typealias InterruptStream = AsyncThrowingRemoveDuplicatesSequence<AsyncThrowingStream<Interrupt, Error>>
+    typealias InterruptStream = AsyncThrowingRemoveDuplicatesSequence<AsyncThrowingStream<
+        Interrupt,
+        Error
+    >>
 
     var interrupts: InterruptStream {
         AsyncThrowingStream { continuation in
@@ -98,10 +101,10 @@ public extension DigitalIn {
     typealias EdgeInterruptStream = AsyncMapSequence<AsyncFilterSequence<InterruptStream>, Date>
 
     var risingEdgeInterrupts: EdgeInterruptStream {
-        interrupts.filter { $0.0 }.map { $0.1 }
+        interrupts.filter(\.0).map(\.1)
     }
 
     var fallingEdgeInterrupts: EdgeInterruptStream {
-        interrupts.filter { $0.0 }.map { $0.1 }
+        interrupts.filter(\.0).map(\.1)
     }
 }

@@ -32,22 +32,28 @@ public actor AsyncUART: CustomStringConvertible {
     private let ring: IORing
     private let uart: UART
     private let fd: FileHandle
-    public let readBufferLength: Int
+    public let blockSize: Int
 
     public nonisolated var description: String {
         "\(type(of: self))(uart: \(uart))"
     }
 
-    public init(with uart: UART) throws {
-        ring = IORing.shared
+    public init(with uart: UART) async throws {
         self.uart = uart
         fd = try FileHandle(fileDescriptor: uart.getFileDescriptor())
         var cfg = swift_uart_cfg_t()
         swifthal_uart_config_get(getObj(uart), &cfg)
-        readBufferLength = Int(cfg.read_buf_len)
+        blockSize = Int(cfg.read_buf_len)
+
+        if blockSize > 1 {
+            ring = try IORing()
+            try await ring.registerFixedBuffers(count: 2, size: blockSize)
+        } else {
+            ring = IORing.shared
+        }
     }
 
-    public func write(_ data: [UInt8]) async throws {
+    public func write(_ data: [UInt8]) async throws -> Int {
         try await rethrowingIORingErrno { [self] in
             try await ring.write(data, to: fd)
         }
@@ -56,6 +62,24 @@ public actor AsyncUART: CustomStringConvertible {
     public func read(_ count: Int) async throws -> [UInt8] {
         try await rethrowingIORingErrno { [self] in
             try await ring.read(count: count, from: fd)
+        }
+    }
+
+    public func writeBlock(_ block: [UInt8]) async throws -> Int {
+        guard blockSize > 1 else {
+            throw SwiftIO.Errno.invalidArgument
+        }
+
+        return try await ring.writeFixed(block, count: blockSize, bufferIndex: 0, to: fd)
+    }
+
+    public func readBlock() async throws -> [UInt8] {
+        guard blockSize > 1 else {
+            throw SwiftIO.Errno.invalidArgument
+        }
+
+        return try await ring.readFixed(count: blockSize, bufferIndex: 1, from: fd) {
+            Array($0)
         }
     }
 }
