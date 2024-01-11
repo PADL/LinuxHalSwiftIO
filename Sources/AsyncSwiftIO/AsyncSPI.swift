@@ -68,7 +68,7 @@ public actor AsyncSPI: CustomStringConvertible {
     }
 
     public func writeBlock(_ block: [UInt8]) async throws -> Int {
-        guard blockSize > 1, block.count <= blockSize else {
+        guard let blockSize, block.count <= blockSize else {
             throw SwiftIO.Errno.invalidArgument
         }
 
