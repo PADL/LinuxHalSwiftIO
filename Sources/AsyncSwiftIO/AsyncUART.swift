@@ -66,11 +66,11 @@ public actor AsyncUART: CustomStringConvertible {
     }
 
     public func writeBlock(_ block: [UInt8]) async throws -> Int {
-        guard blockSize > 1 else {
+        guard blockSize > 1, block.count <= blockSize else {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        return try await ring.writeFixed(block, count: blockSize, bufferIndex: 0, to: fd)
+        return try await ring.writeFixed(block, bufferIndex: 0, to: fd)
     }
 
     public func readBlock(_ count: Int? = nil) async throws -> [UInt8] {
