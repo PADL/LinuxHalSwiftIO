@@ -75,21 +75,21 @@ public actor AsyncSPI: CustomStringConvertible {
         return try await ring.writeFixed(block, count: blockSize, bufferIndex: 0, to: fd)
     }
 
-    public func readBlock() async throws -> [UInt8] {
+    public func readBlock(_ count: Int? = nil) async throws -> [UInt8] {
         guard let blockSize else {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        return try await ring.readFixed(count: blockSize, bufferIndex: 1, from: fd) {
+        return try await ring.readFixed(count: count ?? blockSize, bufferIndex: 1, from: fd) {
             Array($0)
         }
     }
 
-    public func transceiveBlock(_ block: inout [UInt8]) async throws {
+    public func transceiveBlock(_ block: inout [UInt8], count: Int? = nil) async throws {
         guard let blockSize else {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        try await ring.writeReadFixed(&block, count: blockSize, bufferIndex: 0, fd: fd)
+        try await ring.writeReadFixed(&block, count: count ?? blockSize, bufferIndex: 0, fd: fd)
     }
 }
