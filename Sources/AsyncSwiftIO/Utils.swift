@@ -84,7 +84,7 @@ func validateLength(
     return .success(())
 }
 
-func rethrowingIORingErrno<T>(_ body: @escaping () async throws -> T) async rethrows -> T {
+func rethrowingIORingErrno<T>(_ body: () async throws -> T) async rethrows -> T {
     do {
         return try await body()
     } catch let error as IORing.Errno {

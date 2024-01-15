@@ -72,7 +72,9 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        return try await ring.writeFixed(block, bufferIndex: 0, to: fd)
+        return try await rethrowingIORingErrno { [self] in
+            try await ring.writeFixed(block, bufferIndex: 0, to: fd)
+        }
     }
 
     public func readBlock(_ count: Int? = nil) async throws -> [UInt8] {
@@ -80,8 +82,10 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        return try await ring.readFixed(count: count ?? blockSize, bufferIndex: 1, from: fd) {
-            Array($0)
+        return try await rethrowingIORingErrno { [self] in
+            try await ring.readFixed(count: count ?? blockSize, bufferIndex: 1, from: fd) {
+                Array($0)
+            }
         }
     }
 
@@ -90,6 +94,8 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        try await ring.writeReadFixed(&block, count: count ?? blockSize, bufferIndex: 0, fd: fd)
+        try await rethrowingIORingErrno { [self] in
+            try await ring.writeReadFixed(&block, count: count ?? blockSize, bufferIndex: 0, fd: fd)
+        }
     }
 }
