@@ -11,33 +11,32 @@ private struct Id: IdName {
 }
 
 @main
-public enum UARTDumper {
+public enum UARTMonitor {
     public static func main() async throws {
         var device: Int32!
+        let blockSize: Int
 
         if CommandLine.arguments.count > 1 {
             device = Int32(CommandLine.arguments[1])
         }
-
-        if device == nil {
-            device = 0
+        if CommandLine.arguments.count > 2 {
+            blockSize = Int(CommandLine.arguments[2])!
+        } else {
+            blockSize = 16
         }
 
-        let uart = UART(Id(device))
+        let uart = UART(Id(device ?? 1), readBufferLength: blockSize)
         let asyncUart = try await AsyncUART(with: uart)
 
-        debugPrint("Initialized async UART handle \(asyncUart)...")
+        debugPrint("Initialized async UART handle \(asyncUart) from UART \(uart)...")
 
         repeat {
-            let data = try await asyncUart.read(asyncUart.blockSize)
-            debugPrint(Data(data).hexDescription)
+            let data = try await asyncUart.readBlock()
+            print([UInt8](data))
         } while true
     }
 }
 
-// https://stackoverflow.com/questions/39075043/how-to-convert-data-to-hex-string-in-swift
-extension Data {
-    var hexDescription: String {
-        reduce("") { $0 + String(format: "%02x", $1) }
-    }
+private func print(_ data: [UInt8]) {
+    Swift.print(data.map { String(format: "%02x", $0) }.joined())
 }
