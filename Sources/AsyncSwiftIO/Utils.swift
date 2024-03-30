@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct IORing.Errno
+import struct SystemPackage.Errno
 import struct SwiftIO.Errno
 
 func getObj(_ self: AnyObject) -> UnsafeMutableRawPointer? {
@@ -84,10 +84,11 @@ func validateLength(
     return .success(())
 }
 
+@discardableResult
 func rethrowingIORingErrno<T>(_ body: () async throws -> T) async rethrows -> T {
     do {
         return try await body()
-    } catch let error as IORing.Errno {
+    } catch let error as SystemPackage.Errno {
         throw SwiftIO.Errno(rawValue: error.rawValue)
     }
 }
