@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct SystemPackage.Errno
 import struct SwiftIO.Errno
+import struct SystemPackage.Errno
 
 func getObj(_ self: AnyObject) -> UnsafeMutableRawPointer? {
     let mirror = Mirror(reflecting: self)
@@ -85,7 +85,16 @@ func validateLength(
 }
 
 @discardableResult
-func rethrowingIORingErrno<T>(_ body: () async throws -> T) async rethrows -> T {
+func rethrowingSystemErrnoAsSwiftIOErrno<T>(_ body: () throws -> T) rethrows -> T {
+    do {
+        return try body()
+    } catch let error as SystemPackage.Errno {
+        throw SwiftIO.Errno(rawValue: error.rawValue)
+    }
+}
+
+@discardableResult
+func rethrowingSystemErrnoAsSwiftIOErrno<T>(_ body: () async throws -> T) async rethrows -> T {
     do {
         return try await body()
     } catch let error as SystemPackage.Errno {

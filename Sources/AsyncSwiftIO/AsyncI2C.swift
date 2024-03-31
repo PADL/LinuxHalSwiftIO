@@ -40,17 +40,19 @@ public actor AsyncI2C: CustomStringConvertible {
     public init(with i2c: I2C) throws {
         ring = IORing.shared
         self.i2c = i2c
-        fd = try FileHandle(fileDescriptor: i2c.getFileDescriptor())
+        fd = try rethrowingSystemErrnoAsSwiftIOErrno {
+            try FileHandle(fileDescriptor: i2c.getFileDescriptor())
+        }
     }
 
     public func write(_ data: [UInt8]) async throws -> Int {
-        try await rethrowingIORingErrno { [self] in
+        try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
             try await ring.write(data, to: fd)
         }
     }
 
     public func read(_ count: Int) async throws -> [UInt8] {
-        try await rethrowingIORingErrno { [self] in
+        try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
             try await ring.read(count: count, from: fd)
         }
     }

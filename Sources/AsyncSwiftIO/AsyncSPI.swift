@@ -44,25 +44,30 @@ public actor AsyncSPI: CustomStringConvertible {
         blockSize: Int? = nil
     ) async throws {
         self.spi = spi
-        fd = try FileHandle(fileDescriptor: spi.getFileDescriptor())
+        fd = try rethrowingSystemErrnoAsSwiftIOErrno {
+            try FileHandle(fileDescriptor: spi.getFileDescriptor())
+        }
         self.blockSize = blockSize
 
         if let blockSize {
-            ring = try IORing()
-            try await ring.registerFixedBuffers(count: 2, size: blockSize)
+            ring = try await rethrowingSystemErrnoAsSwiftIOErrno {
+                let ring = try IORing()
+                try await ring.registerFixedBuffers(count: 2, size: blockSize)
+                return ring
+            }
         } else {
             ring = IORing.shared
         }
     }
 
     public func write(_ data: [UInt8]) async throws -> Int {
-        try await rethrowingIORingErrno { [self] in
+        try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
             try await ring.write(data, to: fd)
         }
     }
 
     public func read(_ count: Int) async throws -> [UInt8] {
-        try await rethrowingIORingErrno { [self] in
+        try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
             try await ring.read(count: count, from: fd)
         }
     }
@@ -72,7 +77,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        return try await rethrowingIORingErrno { [self] in
+        return try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
             try await ring.writeFixed(block, bufferIndex: 0, to: fd)
         }
     }
@@ -82,7 +87,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        return try await rethrowingIORingErrno { [self] in
+        return try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
             try await ring.readFixed(count: count ?? blockSize, bufferIndex: 1, from: fd) {
                 Array($0)
             }
@@ -94,7 +99,7 @@ public actor AsyncSPI: CustomStringConvertible {
             throw SwiftIO.Errno.invalidArgument
         }
 
-        try await rethrowingIORingErrno { [self] in
+        try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
             try await ring.writeReadFixed(&block, count: count ?? blockSize, bufferIndex: 0, fd: fd)
         }
     }
