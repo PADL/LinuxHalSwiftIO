@@ -17,12 +17,12 @@
 import CSwiftIO
 import IORing
 import LinuxHalSwiftIO
+@_spi(SwiftIOPrivate)
 import SwiftIO
 
 private extension SPI {
     func getFileDescriptor() -> CInt {
-        guard let obj = getObj(self) else { return -1 }
-        return swifthal_spi_get_fd(obj)
+        swifthal_spi_get_fd(obj)
     }
 }
 

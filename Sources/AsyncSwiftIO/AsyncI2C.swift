@@ -19,12 +19,12 @@ import AsyncExtensions
 import CSwiftIO
 import IORing
 import LinuxHalSwiftIO
+@_spi(SwiftIOPrivate)
 import SwiftIO
 
 private extension I2C {
     func getFileDescriptor() -> CInt {
-        guard let obj = getObj(self) else { return -1 }
-        return swifthal_i2c_get_fd(obj)
+        swifthal_i2c_get_fd(obj)
     }
 }
 

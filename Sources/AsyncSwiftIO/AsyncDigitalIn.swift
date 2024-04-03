@@ -18,6 +18,7 @@ import AsyncAlgorithms
 import CSwiftIO
 import Foundation
 import LinuxHalSwiftIO
+@_spi(SwiftIOPrivate)
 import SwiftIO
 
 //
@@ -44,7 +45,6 @@ private func getInterruptModeRawValue(
 
 private extension DigitalIn {
     func withObj(_ body: (_: UnsafeMutableRawPointer) -> CInt) throws {
-        guard let obj = getObj(self) else { throw SwiftIO.Errno.invalidArgument }
         let err = body(obj)
         guard err == 0 else { throw SwiftIO.Errno(err) }
     }

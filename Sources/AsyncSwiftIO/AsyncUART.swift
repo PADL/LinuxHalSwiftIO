@@ -19,12 +19,12 @@ import AsyncExtensions
 import CSwiftIO
 import IORing
 import LinuxHalSwiftIO
+@_spi(SwiftIOPrivate)
 import SwiftIO
 
 private extension UART {
     func getFileDescriptor() -> CInt {
-        guard let obj = getObj(self) else { return -1 }
-        return swifthal_uart_get_fd(obj)
+        swifthal_uart_get_fd(obj)
     }
 }
 
@@ -44,7 +44,7 @@ public actor AsyncUART: CustomStringConvertible {
             try FileHandle(fileDescriptor: uart.getFileDescriptor())
         }
         var cfg = swift_uart_cfg_t()
-        swifthal_uart_config_get(getObj(uart), &cfg)
+        swifthal_uart_config_get(uart.obj, &cfg)
         blockSize = Int(cfg.read_buf_len)
 
         if blockSize > 1 {

@@ -15,7 +15,7 @@
       "location" : "https://github.com/PADL/IORingSwift.git",
       "state" : {
         "branch" : "main",
-        "revision" : "3bd9d0269f2d90cdf30fe0cab2347acefa61bb68"
+        "revision" : "bf998a4ee1a03ebd393ce31dad77079665c21ec7"
       }
     },
     {
@@ -69,7 +69,7 @@
       "location" : "https://github.com/madmachineio/SwiftIO",
       "state" : {
         "branch" : "main",
-        "revision" : "3641c4c4e1a0d0aa73435991665cddb1e6dcdfa5"
+        "revision" : "82479a14673702b8766b34e10cce82d1374c4f3f"
       }
     }
   ],
