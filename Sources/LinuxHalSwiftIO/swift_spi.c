@@ -132,7 +132,6 @@ int swifthal_spi_config(void *arg, ssize_t speed, uint16_t operation) {
 #ifdef __linux__
     const struct swifthal_spi *spi = arg;
     uint8_t mode = 0;
-    uint8_t lsb;
     uint8_t bpw;
     uint32_t freq = speed;
 
@@ -148,16 +147,11 @@ int swifthal_spi_config(void *arg, ssize_t speed, uint16_t operation) {
     if (operation & SWIFT_SPI_MODE_LOOP) {
         mode |= SPI_LOOP;
     }
+    if (operation & SWIFT_SPI_TRANSFER_LSB) {
+        mode |= SPI_LSB_FIRST;
+    }
 
     if (ioctl(spi->fd, SPI_IOC_WR_MODE, &mode) < 0)
-        return -errno;
-
-    if (operation & SWIFT_SPI_TRANSFER_LSB) {
-        lsb = 1;
-    } else {
-        lsb = 0;
-    }
-    if (ioctl(spi->fd, SPI_IOC_WR_LSB_FIRST, &lsb) < 0)
         return -errno;
 
     if (operation & SWIFT_SPI_TRANSFER_8_BITS) {
