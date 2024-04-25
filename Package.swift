@@ -46,6 +46,7 @@ let package = Package(
         .package(url: "https://github.com/PADL/IORingSwift.git", branch: "main"),
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "0.1.0"),
         .package(url: "https://github.com/lhoward/AsyncExtensions", branch: "linux"),
+        .package(url: "https://github.com/apple/swift-system", from: "1.0.0"),
     ],
     targets: [
         .target(
@@ -64,6 +65,7 @@ let package = Package(
             name: "AsyncSwiftIO",
             dependencies: [
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+                .product(name: "SystemPackage", package: "swift-system"),
                 "AsyncExtensions",
                 .product(name: "SwiftIO", package: "SwiftIO"),
                 "LinuxHalSwiftIO",

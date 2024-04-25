@@ -17,7 +17,9 @@
 import AsyncAlgorithms
 import AsyncExtensions
 import CSwiftIO
+#if canImport(IORing)
 import IORing
+#endif
 import LinuxHalSwiftIO
 @_spi(SwiftIOPrivate)
 import SwiftIO
