@@ -263,6 +263,7 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
 
 int swifthal_gpio_interrupt_callback_install_block(
     void *arg, void (^block)(uint8_t risingEdge, struct timespec ts)) {
+#ifdef __linux__
     struct swifthal_gpio *gpio = arg;
 
     if (gpio == NULL || gpio->source == NULL)
@@ -287,6 +288,9 @@ int swifthal_gpio_interrupt_callback_install_block(
     });
 
     return 0;
+#else
+    return -ENOSYS;
+#endif
 }
 
 int swifthal_gpio_interrupt_callback_install(void *arg,
