@@ -15,7 +15,7 @@
       "location" : "https://github.com/PADL/IORingSwift.git",
       "state" : {
         "branch" : "main",
-        "revision" : "69272100581b9b8b287327f62d0e03db49462593"
+        "revision" : "ea8a9d2f4be1a72935ce89104da0e50b45d678c0"
       }
     },
     {
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-async-algorithms",
       "state" : {
-        "revision" : "9cfed92b026c524674ed869a4ff2dcfdeedf8a2a",
-        "version" : "0.1.0"
+        "revision" : "da4e36f86544cdf733a40d59b3a2267e3a7bbf36",
+        "version" : "1.0.0"
       }
     },
     {
