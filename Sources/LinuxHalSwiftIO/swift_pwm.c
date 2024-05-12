@@ -27,7 +27,7 @@ void *swifthal_pwm_open(int id) { return NULL; }
 int swifthal_pwm_close(void *pwm) { return -ENOSYS; }
 
 int swifthal_pwm_set(void *pwm, ssize_t period, ssize_t pulse) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swifthal_pwm_suspend(void *pwm) { return -ENOSYS; }
@@ -35,8 +35,8 @@ int swifthal_pwm_suspend(void *pwm) { return -ENOSYS; }
 int swifthal_pwm_resume(void *pwm) { return -ENOSYS; }
 
 int swifthal_pwm_info_get(void *pwm, swift_pwm_info_t *info) {
-    memset(info, 0, sizeof(*info));
-    return -ENOSYS;
+  memset(info, 0, sizeof(*info));
+  return -ENOSYS;
 }
 
 int swifthal_pwm_dev_number_get(void) { return 0; }

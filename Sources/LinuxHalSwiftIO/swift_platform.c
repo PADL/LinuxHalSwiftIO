@@ -32,39 +32,39 @@ void swifthal_us_wait(uint32_t us) { usleep(us); }
 
 int64_t swifthal_uptime_get(void) {
 #ifdef __linux__
-    struct sysinfo info;
-    if (sysinfo(&info) < 0)
-        return -errno;
+  struct sysinfo info;
+  if (sysinfo(&info) < 0)
+    return -errno;
 
-    return info.uptime * 1000;
+  return info.uptime * 1000;
 #else
-    return 0;
+  return 0;
 #endif
 }
 
 uint32_t swifthal_hwcycle_get(void) {
 #if __x86_64__
-    unsigned a, d;
-    asm volatile("rdtsc" : "=a"(a), "=d"(d));
-    return ((uint64_t)a) | (((uint64_t)d) << 32);
+  unsigned a, d;
+  asm volatile("rdtsc" : "=a"(a), "=d"(d));
+  return ((uint64_t)a) | (((uint64_t)d) << 32);
 #elif defined(__ARM_ARCH_ISA_A64)
-    uint64_t val;
-    asm volatile("mrs %0, cntvct_el0" : "=r"(val));
-    return (uint32_t)val;
+  uint64_t val;
+  asm volatile("mrs %0, cntvct_el0" : "=r"(val));
+  return (uint32_t)val;
 #else
 #error implement swifthal_hwcycle_get() for your platform
 #endif
 }
 
 uint32_t swifthal_hwcycle_to_ns(unsigned int cycles) {
-    return (uint32_t)sysconf(_SC_CLK_TCK);
+  return (uint32_t)sysconf(_SC_CLK_TCK);
 }
 
 void swiftHal_randomGet(uint8_t *buf, ssize_t length) {
 #if defined(__linux__)
-    getrandom(buf, length, 0);
+  getrandom(buf, length, 0);
 #elif defined(__APPLE__)
-    arc4random_buf(buf, length);
+  arc4random_buf(buf, length);
 #else
 #error define swiftHal_randomGet for your platform
 #endif

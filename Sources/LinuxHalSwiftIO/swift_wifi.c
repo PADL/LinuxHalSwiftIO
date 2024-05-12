@@ -23,21 +23,21 @@
 #include "swift_hal_internal.h"
 
 int swift_wifi_scan(swift_wifi_scan_result_t *results, int num) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swift_wifi_connect(char *ssid, int ssid_length, char *psk, int psk_length) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swift_wifi_disconnect(void) { return -ENOSYS; }
 
 int swift_wifi_ap_mode_set(
     int enable, char *ssid, int ssid_length, char *psk, int psk_length) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swift_wifi_status_get(swift_wifi_status_t *status) {
-    memset(status, 0, sizeof(*status));
-    return -ENOSYS;
+  memset(status, 0, sizeof(*status));
+  return -ENOSYS;
 }

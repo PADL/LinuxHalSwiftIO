@@ -25,71 +25,71 @@ import LinuxHalSwiftIO
 import SwiftIO
 
 private extension UART {
-    func getFileDescriptor() -> CInt {
-        swifthal_uart_get_fd(obj)
-    }
+  func getFileDescriptor() -> CInt {
+    swifthal_uart_get_fd(obj)
+  }
 }
 
 public actor AsyncUART: CustomStringConvertible {
-    private let ring: IORing
-    private let uart: UART
-    private let fd: FileHandle
-    public let blockSize: Int
+  private let ring: IORing
+  private let uart: UART
+  private let fd: FileHandle
+  public let blockSize: Int
 
-    public nonisolated var description: String {
-        "\(type(of: self))(uart: \(uart))"
+  public nonisolated var description: String {
+    "\(type(of: self))(uart: \(uart))"
+  }
+
+  public init(with uart: UART) async throws {
+    self.uart = uart
+    fd = try rethrowingSystemErrnoAsSwiftIOErrno {
+      try FileHandle(fileDescriptor: uart.getFileDescriptor())
+    }
+    var cfg = swift_uart_cfg_t()
+    swifthal_uart_config_get(uart.obj, &cfg)
+    blockSize = Int(cfg.read_buf_len)
+
+    if blockSize > 1 {
+      ring = try rethrowingSystemErrnoAsSwiftIOErrno {
+        try IORing()
+      }
+      try await ring.registerFixedBuffers(count: 2, size: blockSize)
+    } else {
+      ring = IORing.shared
+    }
+  }
+
+  public func write(_ data: [UInt8]) async throws -> Int {
+    try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
+      try await ring.write(data, to: fd)
+    }
+  }
+
+  public func read(_ count: Int) async throws -> [UInt8] {
+    try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
+      try await ring.read(count: count, from: fd)
+    }
+  }
+
+  public func writeBlock(_ block: [UInt8]) async throws -> Int {
+    guard blockSize > 1, block.count <= blockSize else {
+      throw SwiftIO.Errno.invalidArgument
     }
 
-    public init(with uart: UART) async throws {
-        self.uart = uart
-        fd = try rethrowingSystemErrnoAsSwiftIOErrno {
-            try FileHandle(fileDescriptor: uart.getFileDescriptor())
-        }
-        var cfg = swift_uart_cfg_t()
-        swifthal_uart_config_get(uart.obj, &cfg)
-        blockSize = Int(cfg.read_buf_len)
+    return try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
+      try await ring.writeFixed(block, bufferIndex: 0, to: fd)
+    }
+  }
 
-        if blockSize > 1 {
-            ring = try rethrowingSystemErrnoAsSwiftIOErrno {
-                try IORing()
-            }
-            try await ring.registerFixedBuffers(count: 2, size: blockSize)
-        } else {
-            ring = IORing.shared
-        }
+  public func readBlock(_ count: Int? = nil) async throws -> [UInt8] {
+    guard blockSize > 1 else {
+      throw SwiftIO.Errno.invalidArgument
     }
 
-    public func write(_ data: [UInt8]) async throws -> Int {
-        try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
-            try await ring.write(data, to: fd)
-        }
+    return try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
+      try await ring.readFixed(count: count ?? blockSize, bufferIndex: 1, from: fd) {
+        Array($0)
+      }
     }
-
-    public func read(_ count: Int) async throws -> [UInt8] {
-        try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
-            try await ring.read(count: count, from: fd)
-        }
-    }
-
-    public func writeBlock(_ block: [UInt8]) async throws -> Int {
-        guard blockSize > 1, block.count <= blockSize else {
-            throw SwiftIO.Errno.invalidArgument
-        }
-
-        return try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
-            try await ring.writeFixed(block, bufferIndex: 0, to: fd)
-        }
-    }
-
-    public func readBlock(_ count: Int? = nil) async throws -> [UInt8] {
-        guard blockSize > 1 else {
-            throw SwiftIO.Errno.invalidArgument
-        }
-
-        return try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
-            try await ring.readFixed(count: count ?? blockSize, bufferIndex: 1, from: fd) {
-                Array($0)
-            }
-        }
-    }
+  }
 }

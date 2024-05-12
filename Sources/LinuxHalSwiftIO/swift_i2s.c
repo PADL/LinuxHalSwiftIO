@@ -33,31 +33,31 @@ int swifthal_i2s_close(void *i2s) { return -ENOSYS; }
 int swifthal_i2s_config_set(void *i2s,
                             const swift_i2s_dir_t dir,
                             const swift_i2s_cfg_t *cfg) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swifthal_i2s_config_get(void *i2s,
                             const swift_i2s_dir_t dir,
                             swift_i2s_cfg_t *cfg) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swifthal_i2s_trigger(void *i2s,
                          const swift_i2s_dir_t dir,
                          const i2s_trigger_cmd_t cmd) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swifthal_i2s_status_get(void *i2s, const swift_i2s_dir_t dir) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swifthal_i2s_write(void *i2s, const uint8_t *buf, ssize_t length) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swifthal_i2s_read(void *i2s, uint8_t *buf, ssize_t length) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swifthal_i2s_dev_number_get(void) { return 0; }

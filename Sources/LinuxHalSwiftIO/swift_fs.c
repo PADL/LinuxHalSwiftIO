@@ -35,196 +35,196 @@
 char *swifthal_mount_point_get(void) { return "/"; }
 
 int swifthal_fs_open(void **fp, const char *path, uint8_t flags) {
-    int oflags = 0;
-    const char *mode;
+  int oflags = 0;
+  const char *mode;
 
-    *fp = NULL;
+  *fp = NULL;
 
-    if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_READ &&
-        (flags & SWIFT_FS_O_FLAGS_MASK) == 0) {
-        mode = "r";
-    } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_WRITE &&
-               (flags & SWIFT_FS_O_FLAGS_MASK) == SWIFT_FS_O_CREATE) {
-        mode = "w";
-    } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_WRITE &&
-               (flags & SWIFT_FS_O_FLAGS_MASK) ==
-                   (SWIFT_FS_O_CREATE | SWIFT_FS_O_APPEND)) {
-        mode = "a";
-    } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_RDWR &&
-               (flags & SWIFT_FS_O_FLAGS_MASK) == 0) {
-        mode = "r+";
-    } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_RDWR &&
-               (flags & SWIFT_FS_O_FLAGS_MASK) == SWIFT_FS_O_CREATE) {
-        mode = "w+";
-    } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_READ &&
-               (flags & SWIFT_FS_O_FLAGS_MASK) ==
-                   (SWIFT_FS_O_CREATE | SWIFT_FS_O_APPEND)) {
-        mode = "a+";
-    }
+  if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_READ &&
+      (flags & SWIFT_FS_O_FLAGS_MASK) == 0) {
+    mode = "r";
+  } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_WRITE &&
+             (flags & SWIFT_FS_O_FLAGS_MASK) == SWIFT_FS_O_CREATE) {
+    mode = "w";
+  } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_WRITE &&
+             (flags & SWIFT_FS_O_FLAGS_MASK) ==
+                 (SWIFT_FS_O_CREATE | SWIFT_FS_O_APPEND)) {
+    mode = "a";
+  } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_RDWR &&
+             (flags & SWIFT_FS_O_FLAGS_MASK) == 0) {
+    mode = "r+";
+  } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_RDWR &&
+             (flags & SWIFT_FS_O_FLAGS_MASK) == SWIFT_FS_O_CREATE) {
+    mode = "w+";
+  } else if ((flags & SWIFT_FS_O_MODE_MASK) == SWIFT_FS_O_READ &&
+             (flags & SWIFT_FS_O_FLAGS_MASK) ==
+                 (SWIFT_FS_O_CREATE | SWIFT_FS_O_APPEND)) {
+    mode = "a+";
+  }
 
-    *fp = fopen(path, mode);
-    if (*fp == NULL)
-        return -errno;
+  *fp = fopen(path, mode);
+  if (*fp == NULL)
+    return -errno;
 
-    return 0;
+  return 0;
 }
 
 int swifthal_fs_close(void *fp) {
-    if (fclose(fp) != 0)
-        return -errno;
-    return 0;
+  if (fclose(fp) != 0)
+    return -errno;
+  return 0;
 }
 
 int swifthal_fs_remove(const char *path) {
-    if (unlink(path) != 0)
-        return -errno;
-    return 0;
+  if (unlink(path) != 0)
+    return -errno;
+  return 0;
 }
 
 int swifthal_fs_rename(const char *from, char *to) {
-    if (rename(from, to) != 0)
-        return -errno;
-    return 0;
+  if (rename(from, to) != 0)
+    return -errno;
+  return 0;
 }
 
 int swifthal_fs_write(void *fp, const void *buf, ssize_t size) {
-    ssize_t nbytes;
+  ssize_t nbytes;
 
-    nbytes = fwrite(buf, size, 1, fp);
-    if (nbytes < 0)
-        return -errno;
+  nbytes = fwrite(buf, size, 1, fp);
+  if (nbytes < 0)
+    return -errno;
 
-    return (int)nbytes;
+  return (int)nbytes;
 }
 
 int swifthal_fs_read(void *fp, void *buf, ssize_t size) {
-    ssize_t nbytes;
+  ssize_t nbytes;
 
-    nbytes = fread(buf, size, 1, fp);
-    if (nbytes < 0)
-        return -errno;
+  nbytes = fread(buf, size, 1, fp);
+  if (nbytes < 0)
+    return -errno;
 
-    return (int)nbytes;
+  return (int)nbytes;
 }
 
 int swifthal_fs_seek(void *fp, ssize_t offset, int whence) {
-    int fwhence = 0;
+  int fwhence = 0;
 
-    switch (whence) {
-    case SWIFT_FS_SEEK_SET:
-        fwhence = SEEK_SET;
-    case SWIFT_FS_SEEK_CUR:
-        fwhence = SEEK_CUR;
-    case SWIFT_FS_SEEK_END:
-        fwhence = SEEK_END;
-    }
+  switch (whence) {
+  case SWIFT_FS_SEEK_SET:
+    fwhence = SEEK_SET;
+  case SWIFT_FS_SEEK_CUR:
+    fwhence = SEEK_CUR;
+  case SWIFT_FS_SEEK_END:
+    fwhence = SEEK_END;
+  }
 
-    if (fseek(fp, offset, fwhence) != 0)
-        return -errno;
-    return 0;
+  if (fseek(fp, offset, fwhence) != 0)
+    return -errno;
+  return 0;
 }
 
 int swifthal_fs_tell(void *fp) {
-    long offset = ftell(fp);
-    if (offset == -1)
-        return -errno;
-    return (int)offset;
+  long offset = ftell(fp);
+  if (offset == -1)
+    return -errno;
+  return (int)offset;
 }
 
 int swifthal_fs_truncate(void *fp, ssize_t length) {
-    if (ftruncate(fileno(fp), length) < 0)
-        return -errno;
-    return 0;
+  if (ftruncate(fileno(fp), length) < 0)
+    return -errno;
+  return 0;
 }
 
 int swifthal_fs_sync(void *fp) {
-    if (fsync(fileno(fp)) < 0)
-        return -errno;
-    return 0;
+  if (fsync(fileno(fp)) < 0)
+    return -errno;
+  return 0;
 }
 
 int swifthal_fs_mkdir(const char *path) {
-    if (mkdir(path, 0777) < 0)
-        return -errno;
-    return 0;
+  if (mkdir(path, 0777) < 0)
+    return -errno;
+  return 0;
 }
 
 int swifthal_fs_opendir(void **dp, const char *path) {
-    *dp = opendir(path);
-    if (*dp == NULL)
-        return -errno;
-    return 0;
+  *dp = opendir(path);
+  if (*dp == NULL)
+    return -errno;
+  return 0;
 }
 
 int swifthal_fs_readdir(void *dp, swift_fs_dirent_t *entry) {
-    struct dirent *dentry;
+  struct dirent *dentry;
 
 next:
-    dentry = readdir(dp);
-    if (dentry == NULL) {
-        if (errno != 0)
-            return -errno;
-        else {
-            entry->name[0] = '\0';
-            return 0;
-        }
+  dentry = readdir(dp);
+  if (dentry == NULL) {
+    if (errno != 0)
+      return -errno;
+    else {
+      entry->name[0] = '\0';
+      return 0;
     }
+  }
 
-    if (dentry->d_type == DT_DIR) {
-        entry->type = SWIFT_FS_DIR_ENTRY_DIR;
-        memcpy(entry->name, dentry->d_name, 256);
-        entry->size = 0;
-    } else if (dentry->d_type == DT_REG) {
-        struct stat statbuf;
+  if (dentry->d_type == DT_DIR) {
+    entry->type = SWIFT_FS_DIR_ENTRY_DIR;
+    memcpy(entry->name, dentry->d_name, 256);
+    entry->size = 0;
+  } else if (dentry->d_type == DT_REG) {
+    struct stat statbuf;
 
-        entry->type = SWIFT_FS_DIR_ENTRY_FILE;
-        memcpy(entry->name, dentry->d_name, 256);
-        if (fstatat(dirfd(dp), dentry->d_name, &statbuf, 0) < 0)
-            return -errno;
-        entry->size = (unsigned int)statbuf.st_size;
-    } else
-        goto next;
+    entry->type = SWIFT_FS_DIR_ENTRY_FILE;
+    memcpy(entry->name, dentry->d_name, 256);
+    if (fstatat(dirfd(dp), dentry->d_name, &statbuf, 0) < 0)
+      return -errno;
+    entry->size = (unsigned int)statbuf.st_size;
+  } else
+    goto next;
 
-    return 0;
+  return 0;
 }
 
 int swifthal_fs_closedir(void *dp) {
-    if (closedir(dp) < 0)
-        return -errno;
-    return 0;
+  if (closedir(dp) < 0)
+    return -errno;
+  return 0;
 }
 
 int swifthal_fs_stat(const char *path, swift_fs_dirent_t *entry) {
-    struct stat statbuf;
+  struct stat statbuf;
 
-    if (stat(path, &statbuf) < 0)
-        return -errno;
+  if (stat(path, &statbuf) < 0)
+    return -errno;
 
-    switch (statbuf.st_mode) {
-    case S_IFDIR:
-        entry->type = SWIFT_FS_DIR_ENTRY_DIR;
-    case S_IFREG:
-        entry->type = SWIFT_FS_DIR_ENTRY_FILE;
-    default:
-        return -ENOENT;
-    }
+  switch (statbuf.st_mode) {
+  case S_IFDIR:
+    entry->type = SWIFT_FS_DIR_ENTRY_DIR;
+  case S_IFREG:
+    entry->type = SWIFT_FS_DIR_ENTRY_FILE;
+  default:
+    return -ENOENT;
+  }
 
-    return 0;
+  return 0;
 }
 
 int swifthal_fs_statfs(const char *path, swift_fs_statvfs_t *stat) {
-    struct statfs statfsbuf;
+  struct statfs statfsbuf;
 
-    if (statfs(path, &statfsbuf) < 0)
-        return -errno;
+  if (statfs(path, &statfsbuf) < 0)
+    return -errno;
 
-    memset(stat, 0, sizeof(*stat));
-    stat->f_bsize = statfsbuf.f_bsize;
+  memset(stat, 0, sizeof(*stat));
+  stat->f_bsize = statfsbuf.f_bsize;
 #ifdef __linux__
-    stat->f_frsize = statfsbuf.f_frsize;
+  stat->f_frsize = statfsbuf.f_frsize;
 #endif
-    stat->f_blocks = statfsbuf.f_blocks;
-    stat->f_bfree = statfsbuf.f_bfree;
+  stat->f_blocks = statfsbuf.f_blocks;
+  stat->f_bfree = statfsbuf.f_bfree;
 
-    return 0;
+  return 0;
 }

@@ -31,5 +31,5 @@ int swift_eth_event_send(int32_t event_id,
                          void *event_data,
                          ssize_t event_data_size,
                          ssize_t ticks_to_wait) {
-    return -ENOSYS;
+  return -ENOSYS;
 }

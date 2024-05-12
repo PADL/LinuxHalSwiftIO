@@ -25,37 +25,37 @@ import LinuxHalSwiftIO
 import SwiftIO
 
 private extension I2C {
-    func getFileDescriptor() -> CInt {
-        swifthal_i2c_get_fd(obj)
-    }
+  func getFileDescriptor() -> CInt {
+    swifthal_i2c_get_fd(obj)
+  }
 }
 
 public actor AsyncI2C: CustomStringConvertible {
-    private let ring: IORing
-    private let i2c: I2C
-    private let fd: FileHandle
+  private let ring: IORing
+  private let i2c: I2C
+  private let fd: FileHandle
 
-    public nonisolated var description: String {
-        "\(type(of: self))(i2c: \(i2c))"
-    }
+  public nonisolated var description: String {
+    "\(type(of: self))(i2c: \(i2c))"
+  }
 
-    public init(with i2c: I2C) throws {
-        ring = IORing.shared
-        self.i2c = i2c
-        fd = try rethrowingSystemErrnoAsSwiftIOErrno {
-            try FileHandle(fileDescriptor: i2c.getFileDescriptor())
-        }
+  public init(with i2c: I2C) throws {
+    ring = IORing.shared
+    self.i2c = i2c
+    fd = try rethrowingSystemErrnoAsSwiftIOErrno {
+      try FileHandle(fileDescriptor: i2c.getFileDescriptor())
     }
+  }
 
-    public func write(_ data: [UInt8]) async throws -> Int {
-        try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
-            try await ring.write(data, to: fd)
-        }
+  public func write(_ data: [UInt8]) async throws -> Int {
+    try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
+      try await ring.write(data, to: fd)
     }
+  }
 
-    public func read(_ count: Int) async throws -> [UInt8] {
-        try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
-            try await ring.read(count: count, from: fd)
-        }
+  public func read(_ count: Int) async throws -> [UInt8] {
+    try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
+      try await ring.read(count: count, from: fd)
     }
+  }
 }

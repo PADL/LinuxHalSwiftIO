@@ -24,56 +24,56 @@
 #include "swift_hal_internal.h"
 
 struct swifthal_counter {
-    clockid_t clockid;
+  clockid_t clockid;
 };
 
 void *swifthal_counter_open(int id) {
-    struct swifthal_counter *counter;
+  struct swifthal_counter *counter;
 
-    counter = calloc(1, sizeof(*counter));
-    if (counter == NULL)
-        return counter;
-
-    counter->clockid = id;
-
+  counter = calloc(1, sizeof(*counter));
+  if (counter == NULL)
     return counter;
+
+  counter->clockid = id;
+
+  return counter;
 }
 
 int swifthal_counter_close(void *arg) {
-    struct swifthal_counter *counter = (struct swifthal_counter *)arg;
+  struct swifthal_counter *counter = (struct swifthal_counter *)arg;
 
-    if (counter) {
-        free(counter);
-        return 0;
-    }
+  if (counter) {
+    free(counter);
+    return 0;
+  }
 
-    return -EINVAL;
+  return -EINVAL;
 }
 
 int swifthal_counter_read(void *arg, uint32_t *ticks) {
-    struct swifthal_counter *counter = arg;
-    struct timespec tp;
-    unsigned long us;
+  struct swifthal_counter *counter = arg;
+  struct timespec tp;
+  unsigned long us;
 
-    *ticks = 0;
+  *ticks = 0;
 
-    if (counter == NULL)
-        return -EINVAL;
+  if (counter == NULL)
+    return -EINVAL;
 
-    if (clock_gettime(counter->clockid, &tp) < 0)
-        return -errno;
+  if (clock_gettime(counter->clockid, &tp) < 0)
+    return -errno;
 
-    us = tp.tv_sec * USEC_PER_SEC;
-    us += tp.tv_nsec / NSEC_PER_USEC;
+  us = tp.tv_sec * USEC_PER_SEC;
+  us += tp.tv_nsec / NSEC_PER_USEC;
 
-    *ticks = swifthal_counter_us_to_ticks(counter, us);
-    return 0;
+  *ticks = swifthal_counter_us_to_ticks(counter, us);
+  return 0;
 }
 
 int swifthal_counter_add_callback(void *arg,
                                   const void *user_data,
                                   void (*callback)(uint32_t, const void *)) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 uint32_t swifthal_counter_freq(void *arg) { return 0; }
@@ -85,7 +85,7 @@ uint32_t swifthal_counter_us_to_ticks(void *arg, uint64_t us) { return 0; }
 uint32_t swifthal_counter_get_max_top_value(void *arg) { return UINT_MAX; }
 
 int swifthal_counter_set_channel_alarm(void *arg, uint32_t ticks) {
-    return -ENOSYS;
+  return -ENOSYS;
 }
 
 int swifthal_counter_cancel_channel_alarm(void *arg) { return -ENOSYS; }

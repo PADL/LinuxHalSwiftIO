@@ -25,94 +25,93 @@
 #include "swift_hal_internal.h"
 
 struct swifthal_timer {
-    swift_timer_type_t type;
-    dispatch_source_t source;
-    _Atomic(unsigned int) status;
+  swift_timer_type_t type;
+  dispatch_source_t source;
+  _Atomic(unsigned int) status;
 };
 
 void *swifthal_timer_open(void) {
-    struct swifthal_timer *timer = calloc(1, sizeof(*timer));
+  struct swifthal_timer *timer = calloc(1, sizeof(*timer));
 
-    if (timer == NULL)
-        return NULL;
+  if (timer == NULL)
+    return NULL;
 
-    timer->source = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
-                                           dispatch_get_global_queue(0, 0));
-    if (timer->source == NULL) {
-        free(timer);
-        return NULL;
-    }
+  timer->source = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
+                                         dispatch_get_global_queue(0, 0));
+  if (timer->source == NULL) {
+    free(timer);
+    return NULL;
+  }
 
-    timer->type = SWIFT_TIMER_TYPE_ONESHOT;
+  timer->type = SWIFT_TIMER_TYPE_ONESHOT;
 
-    return timer;
+  return timer;
 }
 
 int swifthal_timer_close(void *arg) {
-    struct swifthal_timer *timer = (struct swifthal_timer *)arg;
+  struct swifthal_timer *timer = (struct swifthal_timer *)arg;
 
-    if (timer) {
-        dispatch_source_cancel(timer->source);
-        dispatch_release(timer->source);
-        free(timer);
-        return 0;
-    }
+  if (timer) {
+    dispatch_source_cancel(timer->source);
+    dispatch_release(timer->source);
+    free(timer);
+    return 0;
+  }
 
-    return -EINVAL;
+  return -EINVAL;
 }
 
 int swifthal_timer_start(void *arg, swift_timer_type_t type, ssize_t period) {
-    const struct swifthal_timer *timer = arg;
+  const struct swifthal_timer *timer = arg;
 
-    if (timer) {
-        uint64_t interval = NSEC_PER_MSEC * period;
+  if (timer) {
+    uint64_t interval = NSEC_PER_MSEC * period;
 
-        dispatch_source_set_timer(
-            timer->source, dispatch_time(DISPATCH_TIME_NOW, interval),
-            (type == SWIFT_TIMER_TYPE_ONESHOT) ? DISPATCH_TIME_FOREVER
-                                               : interval,
-            0);
-        return 0;
-    }
+    dispatch_source_set_timer(
+        timer->source, dispatch_time(DISPATCH_TIME_NOW, interval),
+        (type == SWIFT_TIMER_TYPE_ONESHOT) ? DISPATCH_TIME_FOREVER : interval,
+        0);
+    return 0;
+  }
 
-    return -EINVAL;
+  return -EINVAL;
 }
 
 int swifthal_timer_stop(void *arg) {
-    const struct swifthal_timer *timer = arg;
+  const struct swifthal_timer *timer = arg;
 
-    if (timer) {
-        dispatch_source_cancel(timer->source);
-        return 0;
-    }
-    return -EINVAL;
+  if (timer) {
+    dispatch_source_cancel(timer->source);
+    return 0;
+  }
+  return -EINVAL;
 }
 
 int swifthal_timer_add_callback(void *arg,
                                 const void *param,
                                 void (*callback)(const void *)) {
-    struct swifthal_timer *timer = (struct swifthal_timer *)arg;
+  struct swifthal_timer *timer = (struct swifthal_timer *)arg;
 
-    if (timer) {
-        dispatch_source_set_event_handler(timer->source, ^{
-          if (timer->type == SWIFT_TIMER_TYPE_ONESHOT)
-              dispatch_source_cancel(timer->source);
-          atomic_fetch_add(&timer->status, 1);
-          callback(param);
-        });
-        return 0;
-    }
+  if (timer) {
+    dispatch_source_set_event_handler(timer->source, ^{
+      if (timer->type == SWIFT_TIMER_TYPE_ONESHOT)
+        dispatch_source_cancel(timer->source);
+      atomic_fetch_add(&timer->status, 1);
+      callback(param);
+    });
+    return 0;
+  }
 
-    return -EINVAL;
+  return -EINVAL;
 }
 
 uint32_t swifthal_timer_status_get(void *arg) {
-    struct swifthal_timer *timer = (struct swifthal_timer *)arg;
+  struct swifthal_timer *timer = (struct swifthal_timer *)arg;
 
-    if (timer) {
-        unsigned int status = atomic_exchange(&timer->status, 0);
-        return status;
-    }
+  if (timer) {
+    unsigned int status = atomic_exchange(&timer->status, 0);
+    return status;
+  }
 
-    return 0;
+  return 0;
 }

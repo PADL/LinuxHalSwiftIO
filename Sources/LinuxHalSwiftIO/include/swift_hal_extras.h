@@ -22,16 +22,16 @@
 /// GPIO
 ///
 
-int swifthal_gpio_get_fd(const void * _Nonnull gpio);
+int swifthal_gpio_get_fd(const void *_Nonnull gpio);
 
-int swifthal_gpio_interrupt_callback_install_block(void * _Nonnull gpio,
-                                                   void (^ _Nonnull)(uint8_t, struct timespec));
+int swifthal_gpio_interrupt_callback_install_block(
+    void *_Nonnull gpio, void (^_Nonnull)(uint8_t, struct timespec));
 
 ///
 /// I2C
 ///
 
-int swifthal_i2c_get_fd(const void * _Nonnull i2c);
+int swifthal_i2c_get_fd(const void *_Nonnull i2c);
 
 ///
 /// SPI
@@ -41,11 +41,12 @@ int swifthal_i2c_get_fd(const void * _Nonnull i2c);
 #define SWIFT_SPI_TRANSFER_8_BITS (1 << 5) // undocumented
 #endif
 
-int swifthal_spi_get_fd(const void * _Nonnull spi);
+int swifthal_spi_get_fd(const void *_Nonnull spi);
 
 ///
 /// UART
 ///
 
-int swifthal_uart_data_bits_set(const void * _Nonnull uart, swift_uart_data_bits_t data_bits);
-int swifthal_uart_get_fd(const void * _Nonnull uart);
+int swifthal_uart_data_bits_set(const void *_Nonnull uart,
+                                swift_uart_data_bits_t data_bits);
+int swifthal_uart_get_fd(const void *_Nonnull uart);

@@ -32,44 +32,44 @@
 #include "swift_hal_internal.h"
 
 struct swifthal_i2c {
-    int fd;
+  int fd;
 };
 
 void *swifthal_i2c_open(int id) {
-    struct swifthal_i2c *i2c;
-    char device[PATH_MAX + 1];
+  struct swifthal_i2c *i2c;
+  char device[PATH_MAX + 1];
 
-    i2c = calloc(1, sizeof(*i2c));
-    if (i2c == NULL)
-        return NULL;
+  i2c = calloc(1, sizeof(*i2c));
+  if (i2c == NULL)
+    return NULL;
 
-    snprintf(device, sizeof(device), "/dev/i2c-%d", id);
+  snprintf(device, sizeof(device), "/dev/i2c-%d", id);
 
-    i2c->fd = open(device, O_RDWR);
-    if (i2c->fd < 0) {
-        swifthal_i2c_close(i2c);
-        return NULL;
-    }
+  i2c->fd = open(device, O_RDWR);
+  if (i2c->fd < 0) {
+    swifthal_i2c_close(i2c);
+    return NULL;
+  }
 
-    return i2c;
+  return i2c;
 }
 
 int swifthal_i2c_close(void *arg) {
-    struct swifthal_i2c *i2c = (struct swifthal_i2c *)arg;
+  struct swifthal_i2c *i2c = (struct swifthal_i2c *)arg;
 
-    if (i2c) {
-        if (i2c->fd != -1)
-            close(i2c->fd);
-        free(i2c);
-        return 0;
-    }
+  if (i2c) {
+    if (i2c->fd != -1)
+      close(i2c->fd);
+    free(i2c);
+    return 0;
+  }
 
-    return -EINVAL;
+  return -EINVAL;
 }
 
 int swifthal_i2c_config(void *arg, unsigned int speed) {
-    // looks like this needs to be configured in the device tree
-    return -ENOSYS;
+  // looks like this needs to be configured in the device tree
+  return -ENOSYS;
 }
 
 int swifthal_i2c_write(void *arg,
@@ -77,18 +77,17 @@ int swifthal_i2c_write(void *arg,
                        const uint8_t *buf,
                        ssize_t length) {
 #ifdef __linux__
-    const struct swifthal_i2c *i2c = arg;
+  const struct swifthal_i2c *i2c = arg;
 
-    if (i2c == NULL)
-        return -EINVAL;
+  if (i2c == NULL)
+    return -EINVAL;
 
-    if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 ||
-        write(i2c->fd, buf, length) < 0)
-        return -errno;
+  if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 || write(i2c->fd, buf, length) < 0)
+    return -errno;
 
-    return 0;
+  return 0;
 #else
-    return -ENOSYS;
+  return -ENOSYS;
 #endif
 }
 
@@ -97,18 +96,17 @@ int swifthal_i2c_read(void *arg,
                       uint8_t *buf,
                       ssize_t length) {
 #ifdef __linux__
-    const struct swifthal_i2c *i2c = arg;
+  const struct swifthal_i2c *i2c = arg;
 
-    if (i2c == NULL)
-        return -EINVAL;
+  if (i2c == NULL)
+    return -EINVAL;
 
-    if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 ||
-        read(i2c->fd, buf, length) < 0)
-        return -errno;
+  if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 || read(i2c->fd, buf, length) < 0)
+    return -errno;
 
-    return 0;
+  return 0;
 #else
-    return -ENOSYS;
+  return -ENOSYS;
 #endif
 }
 
@@ -119,30 +117,30 @@ int swifthal_i2c_write_read(void *arg,
                             void *read_buf,
                             ssize_t num_read) {
 #ifdef __linux__
-    const struct swifthal_i2c *i2c = arg;
-    struct i2c_msg messages[2];
-    struct i2c_rdwr_ioctl_data ioctl_data = {messages, sizeof(messages) /
-                                                           sizeof(messages[0])};
+  const struct swifthal_i2c *i2c = arg;
+  struct i2c_msg messages[2];
+  struct i2c_rdwr_ioctl_data ioctl_data = {messages, sizeof(messages) /
+                                                         sizeof(messages[0])};
 
-    if (i2c == NULL)
-        return -EINVAL;
+  if (i2c == NULL)
+    return -EINVAL;
 
-    messages[0].addr = addr;
-    messages[0].flags = 0;
-    messages[0].len = num_write;
-    messages[0].buf = (uint8_t *)write_buf;
+  messages[0].addr = addr;
+  messages[0].flags = 0;
+  messages[0].len = num_write;
+  messages[0].buf = (uint8_t *)write_buf;
 
-    messages[1].addr = addr;
-    messages[1].flags = I2C_M_RD | I2C_M_NOSTART;
-    messages[1].len = num_read;
-    messages[1].buf = read_buf;
+  messages[1].addr = addr;
+  messages[1].flags = I2C_M_RD | I2C_M_NOSTART;
+  messages[1].len = num_read;
+  messages[1].buf = read_buf;
 
-    if (ioctl(i2c->fd, I2C_RDWR, &ioctl_data) < 0)
-        return -errno;
+  if (ioctl(i2c->fd, I2C_RDWR, &ioctl_data) < 0)
+    return -errno;
 
-    return 0;
+  return 0;
 #else
-    return -ENOSYS;
+  return -ENOSYS;
 #endif
 }
 
@@ -150,10 +148,10 @@ int swifthal_i2c_write_read(void *arg,
 int swifthal_i2c_dev_number_get(void) { return 0; }
 
 int swifthal_i2c_get_fd(const void *arg) {
-    const struct swifthal_i2c *i2c = arg;
+  const struct swifthal_i2c *i2c = arg;
 
-    if (i2c == NULL)
-        return -EINVAL;
+  if (i2c == NULL)
+    return -EINVAL;
 
-    return i2c->fd;
+  return i2c->fd;
 }
