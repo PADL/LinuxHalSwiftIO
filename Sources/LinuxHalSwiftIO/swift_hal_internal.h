@@ -18,6 +18,8 @@
 
 #include <dispatch/dispatch.h>
 
+#include <syslog.h>
+
 #include "swift_hal.h"
 #include "swift_hal_extras.h"
 

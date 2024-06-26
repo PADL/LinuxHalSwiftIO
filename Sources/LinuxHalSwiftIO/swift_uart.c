@@ -48,10 +48,9 @@ static int swifthal_uart__enable_nbio(const struct swifthal_uart *uart) {
   int flags = fcntl(uart->fd, F_GETFL, 0);
   if ((flags & O_NONBLOCK) == 0) {
     if (fcntl(uart->fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-      fprintf(stderr,
-              "LinuxHalSwiftIO: failed to enable non-blocking I/O on UART fd "
-              "%d: %m\n",
-              uart->fd);
+      syslog(LOG_INFO,
+             "LinuxHalSwiftIO: failed to enable non-blocking I/O on UART fd "
+             "%d: %m\n", uart->fd);
       return -errno;
     }
   }
