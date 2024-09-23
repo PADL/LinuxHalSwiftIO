@@ -2,14 +2,6 @@ import AsyncSwiftIO
 import Foundation
 import SwiftIO
 
-private struct Id: IdName {
-  var value: Int32
-
-  init(_ value: Int32) {
-    self.value = value
-  }
-}
-
 @main
 public enum UARTMonitor {
   public static func main() async throws {
@@ -25,7 +17,7 @@ public enum UARTMonitor {
       blockSize = 16
     }
 
-    let uart = UART(Id(device ?? 1), readBufferLength: blockSize)
+    let uart = UART(Id(rawValue: device ?? 1), readBufferLength: blockSize)
     let asyncUart = try await AsyncUART(with: uart)
 
     debugPrint("Initialized async UART handle \(asyncUart) from UART \(uart)...")

@@ -2,14 +2,6 @@ import AsyncSwiftIO
 import Foundation
 import SwiftIO
 
-private struct Id: IdName {
-  var value: Int32
-
-  init(_ value: Int32) {
-    self.value = value
-  }
-}
-
 @main
 public enum SPIDumper {
   public static func main() async throws {
@@ -23,7 +15,7 @@ public enum SPIDumper {
       device = 0
     }
 
-    let spi = SPI(Id(device))
+    let spi = SPI(Id(rawValue: device))
     let asyncSpi = try await AsyncSPI(with: spi)
 
     debugPrint("Initialized async SPI handle \(asyncSpi)...")

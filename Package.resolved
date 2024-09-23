@@ -6,7 +6,7 @@
       "location" : "https://github.com/lhoward/AsyncExtensions",
       "state" : {
         "branch" : "linux",
-        "revision" : "2218eaa30dbdb39b063e92644fc28ed22e2cb942"
+        "revision" : "949c7160e0f8b45b141416f737eb0fa2e3bd05a7"
       }
     },
     {
@@ -15,7 +15,16 @@
       "location" : "https://github.com/PADL/IORingSwift.git",
       "state" : {
         "branch" : "main",
-        "revision" : "ea8a9d2f4be1a72935ce89104da0e50b45d678c0"
+        "revision" : "9acdf07bc83727858c219ef99791d3b0b1b18e10"
+      }
+    },
+    {
+      "identity" : "socketaddress",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/padl/SocketAddress",
+      "state" : {
+        "revision" : "c771792fdc45fecd0f84388ca4182205de54612c",
+        "version" : "0.0.1"
       }
     },
     {
@@ -23,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-async-algorithms",
       "state" : {
-        "revision" : "da4e36f86544cdf733a40d59b3a2267e3a7bbf36",
-        "version" : "1.0.0"
+        "revision" : "6ae9a051f76b81cc668305ceed5b0e0a7fd93d20",
+        "version" : "1.0.1"
       }
     },
     {
@@ -41,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "94cf62b3ba8d4bed62680a282d4c25f9c63c2efb",
-        "version" : "1.1.0"
+        "revision" : "9bf03ff58ce34478e66aaee630e491823326fd06",
+        "version" : "1.1.3"
       }
     },
     {
@@ -50,8 +59,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log",
       "state" : {
-        "revision" : "e97a6fcb1ab07462881ac165fdbb37f067e205d5",
-        "version" : "1.5.4"
+        "revision" : "9cb486020ebf03bfa5b5df985387a14a98744537",
+        "version" : "1.6.1"
       }
     },
     {
@@ -59,8 +68,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-system",
       "state" : {
-        "revision" : "025bcb1165deab2e20d4eaba79967ce73013f496",
-        "version" : "1.2.1"
+        "revision" : "d2ba781702a1d8285419c15ee62fd734a9437ff5",
+        "version" : "1.3.2"
       }
     },
     {
@@ -69,7 +78,7 @@
       "location" : "https://github.com/madmachineio/SwiftIO",
       "state" : {
         "branch" : "main",
-        "revision" : "82479a14673702b8766b34e10cce82d1374c4f3f"
+        "revision" : "d7dad90d9e3dc94159a7410dbe27b77bbad4fde6"
       }
     }
   ],
