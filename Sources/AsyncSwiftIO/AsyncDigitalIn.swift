@@ -44,7 +44,7 @@ private func getInterruptModeRawValue(
 }
 
 private extension DigitalIn {
-  func withObj(_ body: (_: UnsafeMutableRawPointer) -> CInt) throws {
+  func withObj(_ body: (_: UnsafeMutableRawPointer) -> CInt) throws(SwiftIO.Errno) {
     let err = body(obj)
     guard err == 0 else { throw SwiftIO.Errno(err) }
   }
@@ -52,7 +52,7 @@ private extension DigitalIn {
   func _setInterruptBlock(
     _ mode: DigitalIn.InterruptMode,
     callback: @escaping (UInt8, timespec) -> ()
-  ) throws {
+  ) throws(SwiftIO.Errno) {
     try withObj { obj in
       swifthal_gpio_interrupt_config(obj, getInterruptModeRawValue(mode))
     }
@@ -61,13 +61,13 @@ private extension DigitalIn {
     }
   }
 
-  func _enableInterrupt() throws {
+  func _enableInterrupt() throws(SwiftIO.Errno) {
     try withObj { obj in
       swifthal_gpio_interrupt_enable(obj)
     }
   }
 
-  func _disableInterrupt() throws {
+  func _disableInterrupt() throws(SwiftIO.Errno) {
     try withObj { obj in
       swifthal_gpio_interrupt_disable(obj)
     }
