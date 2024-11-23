@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/lhoward/AsyncExtensions",
       "state" : {
-        "branch" : "linux",
-        "revision" : "949c7160e0f8b45b141416f737eb0fa2e3bd05a7"
+        "revision" : "dabc2282009f0b223975f468d4e12bba31f3271f",
+        "version" : "0.9.0"
       }
     },
     {
@@ -15,7 +15,7 @@
       "location" : "https://github.com/PADL/IORingSwift.git",
       "state" : {
         "branch" : "main",
-        "revision" : "9acdf07bc83727858c219ef99791d3b0b1b18e10"
+        "revision" : "7b1ec0390c681c369eb9f185d20bca97469a3a87"
       }
     },
     {
@@ -43,6 +43,15 @@
       "state" : {
         "revision" : "90c0ac3661a4fae9f7b94f45316046805f5b2478",
         "version" : "0.5.2"
+      }
+    },
+    {
+      "identity" : "swift-atomics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-atomics.git",
+      "state" : {
+        "revision" : "cd142fd2f64be2100422d658e7411e39489da985",
+        "version" : "1.2.0"
       }
     },
     {
