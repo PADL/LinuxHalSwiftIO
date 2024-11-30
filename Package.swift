@@ -42,7 +42,7 @@ let package = Package(
   ],
   dependencies: [
     // Dependencies declare other packages that this package depends on.
-    .package(url: "https://github.com/madmachineio/SwiftIO", branch: "main"),
+    .package(url: "https://github.com/madmachineio/SwiftIO", from: "0.1.0"),
     .package(url: "https://github.com/PADL/IORingSwift.git", from: "0.1.2"),
     .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
     .package(url: "https://github.com/lhoward/AsyncExtensions", from: "0.9.0"),
