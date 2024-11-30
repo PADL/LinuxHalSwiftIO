@@ -27,7 +27,6 @@
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #endif
-#include <dispatch/dispatch.h>
 
 #include "swift_hal_internal.h"
 

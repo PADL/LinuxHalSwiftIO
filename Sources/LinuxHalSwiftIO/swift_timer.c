@@ -20,7 +20,6 @@
 #include <errno.h>
 #include <string.h>
 #include <stdatomic.h>
-#include <dispatch/dispatch.h>
 
 #include "swift_hal_internal.h"
 

@@ -54,9 +54,6 @@ let package = Package(
       dependencies: [
         .product(name: "CSwiftIO", package: "SwiftIO"),
       ],
-      cSettings: [
-        .unsafeFlags(["-I", SwiftLibRoot]),
-      ],
       linkerSettings: [
         .linkedLibrary("gpiod", .when(platforms: [.linux])),
       ]
@@ -74,9 +71,6 @@ let package = Package(
           package: "IORingSwift",
           condition: .when(platforms: [.linux])
         ),
-      ],
-      cSettings: [
-        .unsafeFlags(["-I", SwiftLibRoot]),
       ]
     ),
     .executableTarget(

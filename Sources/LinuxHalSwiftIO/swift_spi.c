@@ -26,7 +26,6 @@
 #ifdef __linux__
 #include <linux/spi/spidev.h>
 #endif
-#include <dispatch/dispatch.h>
 
 #include "swift_hal.h"
 

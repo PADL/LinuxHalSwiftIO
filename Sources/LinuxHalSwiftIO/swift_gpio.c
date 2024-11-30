@@ -20,9 +20,6 @@
 #include <errno.h>
 #ifdef __linux__
 #include <gpiod.h>
-#include <Block/Block.h>
-#else
-#include <Block.h>
 #endif
 #include "swift_hal_internal.h"
 

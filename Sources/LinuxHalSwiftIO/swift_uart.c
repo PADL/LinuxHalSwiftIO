@@ -29,7 +29,6 @@
 #endif
 #include <sys/time.h>
 #include <sys/ioctl.h>
-#include <dispatch/dispatch.h>
 
 #include "swift_hal_internal.h"
 
