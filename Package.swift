@@ -44,6 +44,7 @@ let package = Package(
     // Dependencies declare other packages that this package depends on.
     .package(url: "https://github.com/madmachineio/SwiftIO", from: "0.1.0"),
     .package(url: "https://github.com/PADL/IORingSwift.git", from: "0.1.2"),
+    .package(url: "https://github.com/PADL/CLinuxGCD.git", from: "6.0.2"),
     .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
     .package(url: "https://github.com/lhoward/AsyncExtensions", from: "0.9.0"),
     .package(url: "https://github.com/apple/swift-system", from: "1.0.0"),
@@ -53,6 +54,8 @@ let package = Package(
       name: "LinuxHalSwiftIO",
       dependencies: [
         .product(name: "CSwiftIO", package: "SwiftIO"),
+                     .product(name: "CBlockHeaders", package: "CLinuxGCD"),
+                     .product(name: "CDispatchHeaders", package: "CLinuxGCD")
       ],
       linkerSettings: [
         .linkedLibrary("gpiod", .when(platforms: [.linux])),

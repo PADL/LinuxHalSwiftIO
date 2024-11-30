@@ -10,6 +10,15 @@
       }
     },
     {
+      "identity" : "clinuxgcd",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/PADL/CLinuxGCD.git",
+      "state" : {
+        "revision" : "75635d354c4ef14675803e2d6c5dd08026e7b61a",
+        "version" : "6.0.2"
+      }
+    },
+    {
       "identity" : "ioringswift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/PADL/IORingSwift.git",
