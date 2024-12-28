@@ -17,6 +17,7 @@
 import AsyncAlgorithms
 import AsyncExtensions
 import CSwiftIO
+import Glibc
 #if canImport(IORing)
 import IORing
 #endif
@@ -27,6 +28,11 @@ import SwiftIO
 private extension I2C {
   func getFileDescriptor() -> CInt {
     swifthal_i2c_get_fd(obj)
+  }
+
+  func withObj(_ body: (_: UnsafeMutableRawPointer) -> CInt) throws(SwiftIO.Errno) {
+    let err = body(obj)
+    guard err == 0 else { throw SwiftIO.Errno(err) }
   }
 }
 
@@ -39,11 +45,14 @@ public actor AsyncI2C: CustomStringConvertible {
     "\(type(of: self))(i2c: \(i2c))"
   }
 
-  public init(with i2c: I2C) throws {
+  public init(with i2c: I2C, address: UInt8? = nil) throws {
     ring = IORing.shared
     self.i2c = i2c
     fd = try rethrowingSystemErrnoAsSwiftIOErrno {
       try FileHandle(fileDescriptor: i2c.getFileDescriptor())
+    }
+    if let address {
+      try i2c.withObj { swifthal_i2c_set_addr($0, address) }
     }
   }
 

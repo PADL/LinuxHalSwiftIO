@@ -165,3 +165,15 @@ int swifthal_i2c_get_fd(const void *arg) {
 
   return i2c->fd;
 }
+
+int swifthal_i2c_set_addr(const void *arg, uint8_t addr) {
+  const struct swifthal_i2c *i2c = arg;
+
+  if (i2c == NULL)
+    return -EINVAL;
+
+  if (ioctl(i2c->fd, I2C_SLAVE, addr) < 0)
+    return -errno;
+
+  return 0;
+}

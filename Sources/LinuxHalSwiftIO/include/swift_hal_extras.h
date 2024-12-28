@@ -30,6 +30,7 @@ int swifthal_gpio_interrupt_callback_install_block(
 ///
 
 int swifthal_i2c_get_fd(const void *_Nonnull i2c);
+int swifthal_i2c_set_addr(const void *_Nonnull i2c, uint8_t addr);
 
 ///
 /// SPI
