@@ -81,10 +81,10 @@ public extension DigitalIn {
     Error
   >>
 
-  var interrupts: InterruptStream {
+  func interrupts(for mode: DigitalIn.InterruptMode) -> InterruptStream {
     AsyncThrowingStream { continuation in
       do {
-        try _setInterruptBlock(.bothEdge) { risingEdge, ts in
+        try _setInterruptBlock(mode) { risingEdge, ts in
           let timeInterval = TimeInterval(ts.tv_sec + ts.tv_nsec / 1_000_000_000)
           continuation.yield((risingEdge != 0, Date(timeIntervalSince1970: timeInterval)))
         }
@@ -98,13 +98,13 @@ public extension DigitalIn {
     }.removeDuplicates { $0.0 == $1.0 }
   }
 
-  typealias EdgeInterruptStream = AsyncMapSequence<AsyncFilterSequence<InterruptStream>, Date>
+  typealias EdgeInterruptStream = AsyncMapSequence<InterruptStream, Date>
 
   var risingEdgeInterrupts: EdgeInterruptStream {
-    interrupts.filter(\.0).map(\.1)
+    interrupts(for: .rising).map(\.1)
   }
 
   var fallingEdgeInterrupts: EdgeInterruptStream {
-    interrupts.filter(\.0).map(\.1)
+    interrupts(for: .falling).map(\.1)
   }
 }
