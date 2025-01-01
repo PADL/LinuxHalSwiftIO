@@ -102,7 +102,13 @@ public actor AsyncSPI: CustomStringConvertible {
     }
 
     try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
-      try await ring.writeReadFixed(&block, count: count ?? blockSize, bufferIndex: 0, fd: fd)
+      try await ring.writeReadFixed(
+        &block,
+        writeCount: count ?? blockSize,
+        readCount: count ?? blockSize,
+        bufferIndex: 0,
+        fd: fd
+      )
     }
   }
 }

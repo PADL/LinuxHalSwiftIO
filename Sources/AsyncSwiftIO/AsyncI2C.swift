@@ -40,19 +40,30 @@ public actor AsyncI2C: CustomStringConvertible {
   private let ring: IORing
   private let i2c: I2C
   private let fd: FileHandle
+  private let blockSize: Int?
 
   public nonisolated var description: String {
     "\(type(of: self))(i2c: \(i2c))"
   }
 
-  public init(with i2c: I2C, address: UInt8? = nil) throws {
-    ring = IORing.shared
+  public init(with i2c: I2C, address: UInt8? = nil, blockSize: Int? = nil) async throws {
     self.i2c = i2c
+    self.blockSize = blockSize
     fd = try rethrowingSystemErrnoAsSwiftIOErrno {
       try FileHandle(fileDescriptor: i2c.getFileDescriptor())
     }
     if let address {
       try i2c.withObj { swifthal_i2c_set_addr($0, address) }
+    }
+
+    if let blockSize {
+      ring = try await rethrowingSystemErrnoAsSwiftIOErrno {
+        let ring = try IORing()
+        try await ring.registerFixedBuffers(count: 2, size: blockSize)
+        return ring
+      }
+    } else {
+      ring = IORing.shared
     }
   }
 
@@ -65,6 +76,26 @@ public actor AsyncI2C: CustomStringConvertible {
   public func read(_ count: Int) async throws -> [UInt8] {
     try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
       try await ring.read(count: count, from: fd)
+    }
+  }
+
+  public func writeRead(
+    _ block: inout [UInt8],
+    writeCount: Int? = nil,
+    readCount: Int? = nil
+  ) async throws {
+    guard let blockSize else {
+      throw SwiftIO.Errno.invalidArgument
+    }
+
+    try await rethrowingSystemErrnoAsSwiftIOErrno { [self] in
+      try await ring.writeReadFixed(
+        &block,
+        writeCount: writeCount ?? blockSize,
+        readCount: readCount ?? blockSize,
+        bufferIndex: 0,
+        fd: fd
+      )
     }
   }
 }

@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/PADL/IORingSwift.git",
       "state" : {
-        "revision" : "d9f789961f1bc9ebea4f2a685e084e2e404eabe1",
-        "version" : "0.1.4"
+        "revision" : "8a234894dd7019570b882d0317c01856bb3a4152",
+        "version" : "0.1.5"
       }
     },
     {
