@@ -76,10 +76,7 @@ private extension DigitalIn {
 
 public extension DigitalIn {
   typealias Interrupt = (Bool, Date) // is rising and timestamp
-  typealias InterruptStream = AsyncThrowingRemoveDuplicatesSequence<AsyncThrowingStream<
-    Interrupt,
-    Error
-  >>
+  typealias InterruptStream = AsyncThrowingStream<Interrupt, Error>
 
   func interrupts(for mode: DigitalIn.InterruptMode) -> InterruptStream {
     AsyncThrowingStream { continuation in
@@ -95,7 +92,7 @@ public extension DigitalIn {
         try? self._disableInterrupt()
       }
       try! self._enableInterrupt()
-    }.removeDuplicates { $0.0 == $1.0 }
+    }
   }
 
   typealias EdgeInterruptStream = AsyncMapSequence<InterruptStream, Date>
