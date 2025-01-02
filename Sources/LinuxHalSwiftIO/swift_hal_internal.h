@@ -36,7 +36,8 @@ void _Block_release(const void *);
 #else
 // on Linux dispatch/dispatch.h is only available with unsafe Swift flags,
 // which preclude the use of this package as a versioned dependency
-struct dispatch_source_type_s {} __attribute__((aligned(sizeof(uintptr_t))));
+struct dispatch_source_type_s {
+} __attribute__((aligned(sizeof(uintptr_t))));
 
 typedef struct dispatch_source_s *dispatch_source_t;
 typedef struct dispatch_queue_s *dispatch_queue_t;
@@ -56,16 +57,25 @@ void *dispatch_get_context(void *object);
 void dispatch_set_context(void *object, void *context);
 
 void dispatch_source_cancel(void *object);
-void dispatch_source_set_event_handler(dispatch_source_t source, dispatch_block_t handler);
-void dispatch_source_set_cancel_handler(dispatch_source_t source, dispatch_block_t handler);
+void dispatch_source_set_event_handler(dispatch_source_t source,
+                                       dispatch_block_t handler);
+void dispatch_source_set_cancel_handler(dispatch_source_t source,
+                                        dispatch_block_t handler);
 
 typedef uint64_t dispatch_time_t;
 
 uintptr_t dispatch_source_get_handle(dispatch_source_t source);
 
-dispatch_queue_t dispatch_get_global_queue(intptr_t identifier, uintptr_t flags);
-dispatch_source_t dispatch_source_create(dispatch_source_type_t type, uintptr_t handle, uintptr_t mask, dispatch_queue_t queue);
-void dispatch_source_set_timer(dispatch_source_t source, dispatch_time_t start, uint64_t interval, uint64_t leeway);
+dispatch_queue_t dispatch_get_global_queue(intptr_t identifier,
+                                           uintptr_t flags);
+dispatch_source_t dispatch_source_create(dispatch_source_type_t type,
+                                         uintptr_t handle,
+                                         uintptr_t mask,
+                                         dispatch_queue_t queue);
+void dispatch_source_set_timer(dispatch_source_t source,
+                               dispatch_time_t start,
+                               uint64_t interval,
+                               uint64_t leeway);
 dispatch_time_t dispatch_time(dispatch_time_t when, int64_t delta);
 
 #define dispatch_cancel dispatch_source_cancel
