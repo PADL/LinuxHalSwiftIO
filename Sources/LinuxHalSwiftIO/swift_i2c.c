@@ -172,8 +172,12 @@ int swifthal_i2c_set_addr(const void *arg, uint8_t addr) {
   if (i2c == NULL)
     return -EINVAL;
 
+#ifdef __linux__
   if (ioctl(i2c->fd, I2C_SLAVE, addr) < 0)
     return -errno;
 
   return 0;
+#else
+  return -ENOSYS;
+#endif
 }
