@@ -23,6 +23,10 @@
 #endif
 #include "swift_hal_internal.h"
 
+#ifndef __linux__
+struct gpiod_chip;
+#endif
+
 struct swifthal_gpio {
   swift_gpio_direction_t direction;
   swift_gpio_mode_t io_mode;
@@ -36,16 +40,11 @@ struct swifthal_gpio {
   dispatch_source_t source;
 };
 
-void *swifthal_gpio_open(int id,
+static struct swifthal_gpio *
+swifthal_gpio__chip2gpio(int id,
+                         struct gpiod_chip **chip,
                          swift_gpio_direction_t direction,
                          swift_gpio_mode_t io_mode) {
-  return swifthal_gpio__open(id, SWIFTHAL_GPIOCHIP, direction, io_mode);
-}
-
-void *swifthal_gpio__open(int id,
-                          const char *chip,
-                          swift_gpio_direction_t direction,
-                          swift_gpio_mode_t io_mode) {
   struct swifthal_gpio *gpio;
 
   gpio = calloc(1, sizeof(*gpio));
@@ -53,11 +52,8 @@ void *swifthal_gpio__open(int id,
     return NULL;
 
 #ifdef __linux__
-  gpio->chip = gpiod_chip_open_by_name(chip);
-  if (gpio->chip == NULL) {
-    swifthal_gpio_close(gpio);
-    return NULL;
-  }
+  gpio->chip = *chip;
+  *chip = NULL;
 
   gpio->line = gpiod_chip_get_line(gpio->chip, id);
   if (gpio->line == NULL) {
@@ -74,6 +70,51 @@ void *swifthal_gpio__open(int id,
   gpio->queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
   return gpio;
+}
+
+void *swifthal_gpio_open(int id,
+                         swift_gpio_direction_t direction,
+                         swift_gpio_mode_t io_mode) {
+#ifdef __linux__
+  struct swifthal_gpio *gpio = NULL;
+  struct gpiod_chip *chip;
+  struct gpiod_chip_iter *iter = gpiod_chip_iter_new();
+
+  // http://git.munts.com/muntsos/doc/AppNote11-link-gpiochip.pdf
+
+  gpiod_foreach_chip(iter, chip) {
+    const char *label = gpiod_chip_label(chip);
+
+    if (strcmp(label, "pinctrl-rp1") == 0 ||
+        strcmp(label, "pinctrl-bcm2835") == 0 ||
+        strcmp(label, "pinctrl-bcm2711") == 0) {
+      gpio = swifthal_gpio__chip2gpio(id, &chip, direction, io_mode);
+      gpiod_chip_iter_free_noclose(iter);
+      return gpio;
+    }
+  }
+
+  gpiod_chip_iter_free(iter);
+#else
+  return NULL;
+#endif
+}
+
+void *swifthal_gpio__open(int id,
+                          const char *name,
+                          swift_gpio_direction_t direction,
+                          swift_gpio_mode_t io_mode) {
+#ifdef __linux__
+  struct gpio_chip *chip;
+
+  chip = gpiod_chip_open_by_name(name);
+  if (chip == NULL)
+    return NULL;
+
+  return swifthal_gpio__chip2gpio(id, &chip, direction, io_mode);
+#endif
+
+  return NULL;
 }
 
 int swifthal_gpio_close(void *arg) {
