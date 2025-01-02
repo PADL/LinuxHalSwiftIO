@@ -72,8 +72,10 @@ int swifthal_i2c_config(void *arg, unsigned int speed) {
 #ifdef __linux__
   struct swifthal_i2c *i2c = (struct swifthal_i2c *)arg;
 
-  syslog(LOG_INFO, "LinuxHalSwiftIO: I2C speed can only be configured "
-         "by driver or device tree (device %d)", i2c->id);
+  syslog(LOG_INFO,
+         "LinuxHalSwiftIO: I2C speed can only be configured "
+         "by driver or device tree (device %d)",
+         i2c->id);
   return 0;
 #else
   return -EINVAL;
@@ -90,8 +92,7 @@ int swifthal_i2c_write(void *arg,
   if (i2c == NULL)
     return -EINVAL;
 
-  if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 ||
-      write(i2c->fd, buf, length) < 0)
+  if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 || write(i2c->fd, buf, length) < 0)
     return -errno;
 
   return 0;
@@ -110,8 +111,7 @@ int swifthal_i2c_read(void *arg,
   if (i2c == NULL)
     return -EINVAL;
 
-  if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 ||
-      read(i2c->fd, buf, length) < 0)
+  if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 || read(i2c->fd, buf, length) < 0)
     return -errno;
 
   return 0;
