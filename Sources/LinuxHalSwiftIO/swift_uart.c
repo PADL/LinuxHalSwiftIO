@@ -35,9 +35,6 @@
 struct swifthal_uart {
   int fd;
   size_t read_buf_len;
-  off_t read_buf_offset;
-  size_t read_buf_consumed;
-  uint8_t read_buf[0];
 };
 
 #define SWIFTHAL_UART_REMAIN(uart)                                             \
@@ -295,168 +292,16 @@ int swifthal_uart_char_get(void *arg, uint8_t *c, int timeout) {
 }
 
 int swifthal_uart_write(void *arg, const uint8_t *buf, ssize_t length) {
-  const struct swifthal_uart *uart = arg;
-  struct pollfd pollfd;
-  int err;
-  const uint8_t *bufp;
-  size_t nremain;
-
-  if (uart == NULL)
-    return -EINVAL;
-
-  pollfd.fd = uart->fd;
-  pollfd.events = POLLOUT;
-  pollfd.revents = 0;
-
-  for (bufp = buf, nremain = (size_t)length; nremain;) {
-    err = poll(&pollfd, 1, -1);
-    if (err < 0)
-      return -errno;
-
-    if (pollfd.revents == POLLOUT) {
-      size_t nbytes = write(uart->fd, bufp, nremain);
-      if (nbytes < 0)
-        return -errno;
-
-      nremain -= nbytes;
-      bufp += nbytes;
-    }
-  }
-
-  return 0;
-}
-
-static inline int64_t swifthal_uart__tv2ms(struct timeval *tv) {
-  uint64_t ms;
-
-  ms = tv->tv_sec * 1000;
-  ms += tv->tv_usec / 1000;
-
-  return ms;
-}
-
-// read a block of data, returning number of bytes remaining in the
-// block if the timeout was reached, or a negative value indicating
-// a non-recoverable error
-//
-// pass NULL for timeout if blocking indefinitely is desired
-//
-// on return timeout is updated to reflect the number of seconds
-// remaining, in case a complete buffer was read within the timeout
-static ssize_t swifthal_uart__read_buffer(struct swifthal_uart *uart,
-                                          int64_t *timeout) {
-  int err;
-  struct pollfd pollfd;
-  struct timeval now = {.tv_sec = 0, .tv_usec = 0};
-
-  pollfd.fd = uart->fd;
-
-  while (uart->read_buf_offset < uart->read_buf_len) {
-    ssize_t nbytes;
-
-    if (timeout) {
-      struct timeval prev = now;
-
-      gettimeofday(&now, NULL);
-
-      if (prev.tv_sec) {
-        int64_t diff = swifthal_uart__tv2ms(&now) - swifthal_uart__tv2ms(&prev);
-        *timeout -= diff;
-      }
-
-      if (*timeout < 0)
-        break;
-    }
-
-    pollfd.events = POLLIN;
-    pollfd.revents = 0;
-
-    err = poll(&pollfd, 1, timeout ? *timeout : -1);
-    if (err < 0)
-      return -errno;
-    else if (err == 0)
-      break; // timed out
-
-    if (pollfd.revents != POLLIN)
-      continue;
-
-    nbytes = read(pollfd.fd, &uart->read_buf[uart->read_buf_offset],
-                  SWIFTHAL_UART_REMAIN(uart));
-    if (nbytes < 0)
-      return -errno;
-
-    uart->read_buf_offset += nbytes;
-    assert(uart->read_buf_offset <= uart->read_buf_len);
-  }
-
-  return SWIFTHAL_UART_REMAIN(uart);
+  return -ENOSYS;
 }
 
 int swifthal_uart_read(void *arg, uint8_t *buf, ssize_t length, int timeout) {
-  struct swifthal_uart *uart = (struct swifthal_uart *)arg;
-  int64_t timeout64 = (int64_t)timeout;
-  ssize_t nremain = (size_t)length;
-  ssize_t res;
-
-  if (uart == NULL)
-    return -EINVAL;
-
-  assert(length > 0);
-  assert(buf);
-
-  while (nremain) {
-    // check for consumed bytes to return
-    if (uart->read_buf_consumed < uart->read_buf_offset) {
-      size_t nconsume = MIN(SWIFTHAL_UART_REMAIN(uart), nremain);
-
-      memcpy(buf, &uart->read_buf[uart->read_buf_consumed], nconsume);
-      uart->read_buf_consumed += nconsume;
-      assert(uart->read_buf_consumed <= uart->read_buf_offset);
-      nremain -= nconsume;
-    }
-
-    if (nremain == 0)
-      break; // all data read
-
-    // reset buffer if it has been completely read
-    if (uart->read_buf_offset == uart->read_buf_len) {
-      assert(uart->read_buf_consumed == uart->read_buf_offset);
-      swifthal_uart_buffer_clear(uart);
-    }
-
-    // attempt to read a complete buffer (subject to timeout)
-    res = swifthal_uart__read_buffer(uart, timeout == -1 ? NULL : &timeout64);
-    if (res < 0)
-      return res;
-
-    if (timeout64 < 0)
-      break; // we timed out
-  }
-
-  return (int)nremain;
+  return -ENOSYS;
 }
 
-int swifthal_uart_remainder_get(void *arg) {
-  const struct swifthal_uart *uart = arg;
+int swifthal_uart_remainder_get(void *arg) { return -ENOSYS; }
 
-  return SWIFTHAL_UART_REMAIN(uart);
-}
-
-int swifthal_uart_buffer_clear(void *arg) {
-  struct swifthal_uart *uart = (struct swifthal_uart *)arg;
-
-  if (uart == NULL)
-    return -EINVAL;
-
-  uart->read_buf_offset = 0;
-  uart->read_buf_consumed = 0;
-
-#ifndef NDEBUG
-  memset(uart->read_buf, 0xff, uart->read_buf_len);
-#endif
-
-  return 0;
-}
+int swifthal_uart_buffer_clear(void *arg) { return -ENOSYS; }
 
 int swifthal_uart_dev_number_get(void) { return 0; }
 
