@@ -4,6 +4,8 @@
 import Foundation
 import PackageDescription
 
+let EnvSysRoot = ProcessInfo.processInfo.environment["SYSROOT"]
+
 func tryGuessSwiftLibRoot() -> String {
   let task = Process()
   task.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -19,7 +21,7 @@ func tryGuessSwiftLibRoot() -> String {
   }
 }
 
-let SwiftLibRoot = tryGuessSwiftLibRoot()
+let SwiftLibRoot = EnvSysRoot != nil ? "\(EnvSysRoot!)/usr/lib/swift" : tryGuessSwiftLibRoot()
 
 let package = Package(
   name: "LinuxHalSwiftIO",
