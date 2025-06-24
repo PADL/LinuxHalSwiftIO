@@ -51,6 +51,10 @@ uint32_t swifthal_hwcycle_get(void) {
   uint64_t val;
   asm volatile("mrs %0, cntvct_el0" : "=r"(val));
   return (uint32_t)val;
+#elif defined(__ARM_ARCH_7S__) || defined(__ARM_ARCH_7A__)
+  uint64_t val;
+  asm volatile("mrrc p15, 1, %Q0, %R0, c14" : "=r" (val));
+  return (uint32_t)val;
 #else
 #error implement swifthal_hwcycle_get() for your platform
 #endif
