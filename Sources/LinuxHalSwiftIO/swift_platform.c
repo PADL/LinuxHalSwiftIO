@@ -47,11 +47,11 @@ uint32_t swifthal_hwcycle_get(void) {
   unsigned a, d;
   asm volatile("rdtsc" : "=a"(a), "=d"(d));
   return ((uint64_t)a) | (((uint64_t)d) << 32);
-#elif defined(__ARM_ARCH_ISA_A64)
+#elif defined(__aarch64__)
   uint64_t val;
   asm volatile("mrs %0, cntvct_el0" : "=r"(val));
   return (uint32_t)val;
-#elif defined(__ARM_ARCH_7S__) || defined(__ARM_ARCH_7A__)
+#elif defined(__arm__)
   uint64_t val;
   asm volatile("mrrc p15, 1, %Q0, %R0, c14" : "=r" (val));
   return (uint32_t)val;
