@@ -17,7 +17,9 @@
 import AsyncAlgorithms
 import AsyncExtensions
 import CSwiftIO
+#if canImport(Glibc)
 import Glibc
+#endif
 #if canImport(IORing)
 import IORing
 #endif
