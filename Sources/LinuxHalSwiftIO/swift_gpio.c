@@ -95,9 +95,9 @@ void *swifthal_gpio_open(int id,
   }
 
   gpiod_chip_iter_free(iter);
-#else
-  return NULL;
 #endif
+
+  return NULL;
 }
 
 void *swifthal_gpio__open(int id,
@@ -105,7 +105,7 @@ void *swifthal_gpio__open(int id,
                           swift_gpio_direction_t direction,
                           swift_gpio_mode_t io_mode) {
 #ifdef __linux__
-  struct gpio_chip *chip;
+  struct gpiod_chip *chip;
 
   chip = gpiod_chip_open_by_name(name);
   if (chip == NULL)
