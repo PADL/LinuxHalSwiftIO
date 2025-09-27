@@ -113,10 +113,13 @@ int swifthal_fs_seek(void *fp, ssize_t offset, int whence) {
   switch (whence) {
   case SWIFT_FS_SEEK_SET:
     fwhence = SEEK_SET;
+    break;
   case SWIFT_FS_SEEK_CUR:
     fwhence = SEEK_CUR;
+    break;
   case SWIFT_FS_SEEK_END:
     fwhence = SEEK_END;
+    break;
   }
 
   if (fseek(fp, offset, fwhence) != 0)

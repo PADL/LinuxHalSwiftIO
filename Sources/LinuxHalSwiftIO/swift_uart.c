@@ -189,6 +189,7 @@ int swifthal_uart_stop_bits_set(void *arg, swift_uart_stop_bits_t stop_bits) {
   switch (stop_bits) {
   case SWIFT_UART_STOP_BITS_2:
     tty.c_cflag |= CSTOPB;
+    break;
   case SWIFT_UART_STOP_BITS_1:
     tty.c_cflag &= ~(CSTOPB);
     break;
