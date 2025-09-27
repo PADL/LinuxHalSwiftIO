@@ -246,7 +246,7 @@ int swifthal_spi_get_fd(const void *arg) {
   const struct swifthal_spi *spi = arg;
 
   if (spi == NULL)
-    return EINVAL;
+    return -EINVAL;
 
   return spi->fd;
 }
