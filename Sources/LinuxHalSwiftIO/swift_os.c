@@ -42,6 +42,7 @@ struct swifthal_os_task {
 static void *swifthal_os_task__start(void *arg) {
   struct swifthal_os_task *param = arg;
   param->fn(param->p1, param->p2, param->p3);
+  free(param);
   return NULL;
 }
 
@@ -54,14 +55,18 @@ void *swifthal_os_task_create(char *name,
                               int stack_size) {
   pthread_attr_t attr;
   struct sched_param param;
-  struct swifthal_os_task task;
+  struct swifthal_os_task *task;
   pthread_t thread;
   int err;
 
-  task.fn = fn;
-  task.p1 = p1;
-  task.p2 = p2;
-  task.p3 = p3;
+  task = malloc(sizeof(*task));
+  if (task == NULL)
+    return NULL;
+
+  task->fn = fn;
+  task->p1 = p1;
+  task->p2 = p2;
+  task->p3 = p3;
 
   err = pthread_attr_init(&attr);
   if (err == 0)
@@ -72,12 +77,15 @@ void *swifthal_os_task_create(char *name,
   }
   if (err == 0)
     err = pthread_attr_setstacksize(&attr, stack_size);
-  err = pthread_create(&thread, &attr, swifthal_os_task__start, &task);
+  if (err == 0)
+    err = pthread_create(&thread, &attr, swifthal_os_task__start, task);
 
   pthread_attr_destroy(&attr);
 
-  if (err)
+  if (err) {
+    free(task);
     return NULL;
+  }
 
   return (void *)((intptr_t)thread);
 }
