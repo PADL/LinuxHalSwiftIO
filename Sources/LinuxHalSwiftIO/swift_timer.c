@@ -64,7 +64,7 @@ int swifthal_timer_start(void *arg, swift_timer_type_t type, ssize_t period) {
   const struct swifthal_timer *timer = arg;
 
   if (timer) {
-    uint64_t interval = NSEC_PER_MSEC * period;
+    uint64_t interval = (uint64_t)period * NSEC_PER_MSEC;
 
     dispatch_source_set_timer(
         timer->source, dispatch_time(DISPATCH_TIME_NOW, interval),
