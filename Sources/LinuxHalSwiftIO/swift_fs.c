@@ -36,7 +36,7 @@ char *swifthal_mount_point_get(void) { return "/"; }
 
 int swifthal_fs_open(void **fp, const char *path, uint8_t flags) {
   int oflags = 0;
-  const char *mode;
+  const char *mode = NULL;
 
   *fp = NULL;
 
@@ -60,6 +60,8 @@ int swifthal_fs_open(void **fp, const char *path, uint8_t flags) {
              (flags & SWIFT_FS_O_FLAGS_MASK) ==
                  (SWIFT_FS_O_CREATE | SWIFT_FS_O_APPEND)) {
     mode = "a+";
+  } else {
+    return -EINVAL;
   }
 
   *fp = fopen(path, mode);
@@ -88,21 +90,29 @@ int swifthal_fs_rename(const char *from, char *to) {
 }
 
 int swifthal_fs_write(void *fp, const void *buf, ssize_t size) {
-  ssize_t nbytes;
+  size_t nbytes;
 
   nbytes = fwrite(buf, size, 1, fp);
-  if (nbytes < 0)
-    return -errno;
+  if (nbytes != 1) {
+    if (ferror(fp))
+      return -errno;
+    return -EIO;
+  }
 
   return (int)nbytes;
 }
 
 int swifthal_fs_read(void *fp, void *buf, ssize_t size) {
-  ssize_t nbytes;
+  size_t nbytes;
 
   nbytes = fread(buf, size, 1, fp);
-  if (nbytes < 0)
-    return -errno;
+  if (nbytes != 1) {
+    if (ferror(fp))
+      return -errno;
+    if (feof(fp))
+      return 0;
+    return -EIO;
+  }
 
   return (int)nbytes;
 }
@@ -175,13 +185,15 @@ next:
 
   if (dentry->d_type == DT_DIR) {
     entry->type = SWIFT_FS_DIR_ENTRY_DIR;
-    memcpy(entry->name, dentry->d_name, 256);
+    strncpy(entry->name, dentry->d_name, sizeof(entry->name) - 1);
+    entry->name[sizeof(entry->name) - 1] = '\0';
     entry->size = 0;
   } else if (dentry->d_type == DT_REG) {
     struct stat statbuf;
 
     entry->type = SWIFT_FS_DIR_ENTRY_FILE;
-    memcpy(entry->name, dentry->d_name, 256);
+    strncpy(entry->name, dentry->d_name, sizeof(entry->name) - 1);
+    entry->name[sizeof(entry->name) - 1] = '\0';
     if (fstatat(dirfd(dp), dentry->d_name, &statbuf, 0) < 0)
       return -errno;
     entry->size = (unsigned int)statbuf.st_size;
@@ -203,12 +215,11 @@ int swifthal_fs_stat(const char *path, swift_fs_dirent_t *entry) {
   if (stat(path, &statbuf) < 0)
     return -errno;
 
-  switch (statbuf.st_mode) {
-  case S_IFDIR:
+  if (S_ISDIR(statbuf.st_mode)) {
     entry->type = SWIFT_FS_DIR_ENTRY_DIR;
-  case S_IFREG:
+  } else if (S_ISREG(statbuf.st_mode)) {
     entry->type = SWIFT_FS_DIR_ENTRY_FILE;
-  default:
+  } else {
     return -ENOENT;
   }
 
