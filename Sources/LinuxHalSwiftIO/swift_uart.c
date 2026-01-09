@@ -43,6 +43,9 @@ struct swifthal_uart {
 #define SWIFTHAL_UART_REMAIN(uart)                                             \
   ((uart)->read_buf_len - (uart)->read_buf_offset)
 
+#define SWIFTHAL_UART_UNCONSUMED(uart)                                        \
+  ((uart)->read_buf_offset - (uart)->read_buf_consumed)
+
 static int swifthal_uart__enable_nbio(const struct swifthal_uart *uart) {
   int flags = fcntl(uart->fd, F_GETFL, 0);
   if ((flags & O_NONBLOCK) == 0) {
@@ -400,7 +403,7 @@ static ssize_t swifthal_uart__read_buffer(struct swifthal_uart *uart,
 int swifthal_uart_read(void *arg, uint8_t *buf, ssize_t length, int timeout) {
   struct swifthal_uart *uart = (struct swifthal_uart *)arg;
   int64_t timeout64 = (int64_t)timeout;
-  ssize_t nremain = (size_t)length;
+  size_t nremain = (size_t)length;
   ssize_t res;
 
   if (uart == NULL)
@@ -412,7 +415,7 @@ int swifthal_uart_read(void *arg, uint8_t *buf, ssize_t length, int timeout) {
   while (nremain) {
     // check for consumed bytes to return
     if (uart->read_buf_consumed < uart->read_buf_offset) {
-      size_t nconsume = MIN(SWIFTHAL_UART_REMAIN(uart), nremain);
+      size_t nconsume = MIN(SWIFTHAL_UART_UNCONSUMED(uart), nremain);
 
       memcpy(buf, &uart->read_buf[uart->read_buf_consumed], nconsume);
       uart->read_buf_consumed += nconsume;
@@ -444,7 +447,7 @@ int swifthal_uart_read(void *arg, uint8_t *buf, ssize_t length, int timeout) {
 int swifthal_uart_remainder_get(void *arg) {
   const struct swifthal_uart *uart = arg;
 
-  return SWIFTHAL_UART_REMAIN(uart);
+  return SWIFTHAL_UART_UNCONSUMED(uart);
 }
 
 int swifthal_uart_buffer_clear(void *arg) {
