@@ -34,8 +34,6 @@ public actor AsyncSPI: CustomStringConvertible {
   private let fd: FileHandle
   private let blockSize: Int?
 
-  private typealias Continuation = CheckedContinuation<(), Error>
-
   public nonisolated var description: String {
     "\(type(of: self))(spi: \(spi), blockSize: \(blockSize ?? 0))"
   }

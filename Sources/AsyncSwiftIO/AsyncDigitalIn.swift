@@ -82,7 +82,7 @@ public extension DigitalIn {
     AsyncThrowingStream { continuation in
       do {
         try _setInterruptBlock(mode) { risingEdge, ts in
-          let timeInterval = TimeInterval(ts.tv_sec + ts.tv_nsec / 1_000_000_000)
+          let timeInterval = TimeInterval(ts.tv_sec) + TimeInterval(ts.tv_nsec) / 1_000_000_000.0
           continuation.yield((risingEdge != 0, Date(timeIntervalSince1970: timeInterval)))
         }
       } catch {
@@ -91,7 +91,11 @@ public extension DigitalIn {
       continuation.onTermination = { @Sendable _ in
         try? self._disableInterrupt()
       }
-      try! self._enableInterrupt()
+      do {
+        try self._enableInterrupt()
+      } catch {
+        continuation.finish(throwing: error)
+      }
     }
   }
 
