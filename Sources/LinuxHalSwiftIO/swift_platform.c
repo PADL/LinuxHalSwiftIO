@@ -36,7 +36,7 @@ int64_t swifthal_uptime_get(void) {
   if (sysinfo(&info) < 0)
     return -errno;
 
-  return info.uptime * 1000;
+  return (int64_t)info.uptime * 1000;
 #else
   return 0;
 #endif
