@@ -331,7 +331,7 @@ int swifthal_uart_write(void *arg, const uint8_t *buf, ssize_t length) {
 static inline int64_t swifthal_uart__tv2ms(struct timeval *tv) {
   uint64_t ms;
 
-  ms = tv->tv_sec * 1000;
+  ms = (uint64_t)tv->tv_sec * 1000;
   ms += tv->tv_usec / 1000;
 
   return ms;
