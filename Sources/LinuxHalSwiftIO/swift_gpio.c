@@ -354,9 +354,6 @@ int swifthal_gpio_interrupt_callback_uninstall(void *arg) {
 int swifthal_gpio_interrupt_enable(void *arg) {
   const struct swifthal_gpio *gpio = arg;
 
-  if (gpio == NULL)
-    return -EINVAL;
-
   if (gpio == NULL || gpio->source == NULL)
     return -EINVAL;
 
