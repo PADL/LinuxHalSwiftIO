@@ -315,6 +315,9 @@ int swifthal_uart_write(void *arg, const uint8_t *buf, ssize_t length) {
     if (err < 0)
       return -errno;
 
+    if (pollfd.revents & (POLLERR | POLLHUP | POLLNVAL))
+      return -EIO;
+
     if (pollfd.revents == POLLOUT) {
       size_t nbytes = write(uart->fd, bufp, nremain);
       if (nbytes < 0)
