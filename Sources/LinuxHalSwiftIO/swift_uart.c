@@ -273,6 +273,7 @@ int swifthal_uart_config_get(void *arg, swift_uart_cfg_t *cfg) {
   switch (tty.c_cflag & CSIZE) {
   case CS8:
     cfg->data_bits = SWIFT_UART_DATA_BITS_8;
+    break;
   default:
     return -EINVAL;
   }
