@@ -63,7 +63,7 @@ int swifthal_counter_read(void *arg, uint32_t *ticks) {
   if (clock_gettime(counter->clockid, &tp) < 0)
     return -errno;
 
-  us = tp.tv_sec * USEC_PER_SEC;
+  us = (unsigned long)tp.tv_sec * USEC_PER_SEC;
   us += tp.tv_nsec / NSEC_PER_USEC;
 
   *ticks = swifthal_counter_us_to_ticks(counter, us);
