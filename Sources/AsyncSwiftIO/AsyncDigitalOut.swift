@@ -19,13 +19,6 @@ import LinuxHalSwiftIO
 @_spi(SwiftIOPrivate)
 import SwiftIO
 
-private extension DigitalOut {
-  func withObj(_ body: (_: UnsafeMutableRawPointer) -> CInt) throws(SwiftIO.Errno) {
-    let err = body(obj)
-    guard err == 0 else { throw SwiftIO.Errno(err) }
-  }
-}
-
 public extension DigitalOut {
   func pulse(width: Duration) async throws {
     toggle()
