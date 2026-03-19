@@ -70,6 +70,8 @@ void *swifthal_os_task_create(char *name,
 
   err = pthread_attr_init(&attr);
   if (err == 0)
+    err = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+  if (err == 0)
     err = pthread_attr_getschedparam(&attr, &param);
   if (err == 0) {
     param.sched_priority = prio;
@@ -151,8 +153,13 @@ static struct timespec *swifthal_timeout_to_timespec(int timeout,
   if (timeout == -1)
     return NULL;
 
-  ts->tv_sec = timeout / 1000;
-  ts->tv_nsec = (timeout % 1000) * NSEC_PER_MSEC;
+  clock_gettime(CLOCK_REALTIME, ts);
+  ts->tv_sec += timeout / 1000;
+  ts->tv_nsec += (timeout % 1000) * NSEC_PER_MSEC;
+  if (ts->tv_nsec >= 1000000000L) {
+    ts->tv_sec += ts->tv_nsec / 1000000000L;
+    ts->tv_nsec %= 1000000000L;
+  }
 
   return ts;
 }
@@ -367,7 +374,12 @@ int swifthal_os_sem_reset(const void *arg) {
   if (sem_getvalue(&sem->sem, &value) != 0)
     return -errno;
   while (value > sem->init_cnt) {
-    if (sem_trywait(&sem->sem) != 0 || sem_getvalue(&sem->sem, &value) != 0)
+    if (sem_trywait(&sem->sem) != 0) {
+      if (errno == EAGAIN)
+        break;
+      return -errno;
+    }
+    if (sem_getvalue(&sem->sem, &value) != 0)
       return -errno;
   }
 
