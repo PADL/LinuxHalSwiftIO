@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <time.h>
 #include <sys/random.h>
 #ifdef __linux__
 #include <sys/sysinfo.h>
@@ -46,7 +47,7 @@ uint32_t swifthal_hwcycle_get(void) {
 #if __x86_64__
   unsigned a, d;
   asm volatile("rdtsc" : "=a"(a), "=d"(d));
-  return ((uint64_t)a) | (((uint64_t)d) << 32);
+  return a;
 #elif defined(__aarch64__)
   uint64_t val;
   asm volatile("mrs %0, cntvct_el0" : "=r"(val));
@@ -61,7 +62,10 @@ uint32_t swifthal_hwcycle_get(void) {
 }
 
 uint32_t swifthal_hwcycle_to_ns(unsigned int cycles) {
-  return (uint32_t)sysconf(_SC_CLK_TCK);
+  struct timespec tp;
+  if (clock_getres(CLOCK_MONOTONIC, &tp) < 0)
+    return 0;
+  return (uint32_t)((uint64_t)cycles * (tp.tv_sec * 1000000000ULL + tp.tv_nsec));
 }
 
 void swiftHal_randomGet(uint8_t *buf, ssize_t length) {
