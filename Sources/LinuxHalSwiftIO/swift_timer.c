@@ -52,6 +52,7 @@ int swifthal_timer_close(void *arg) {
 
   if (timer) {
     dispatch_source_cancel(timer->source);
+    dispatch_resume(timer->source);
     dispatch_release(timer->source);
     free(timer);
     return 0;
@@ -61,15 +62,17 @@ int swifthal_timer_close(void *arg) {
 }
 
 int swifthal_timer_start(void *arg, swift_timer_type_t type, ssize_t period) {
-  const struct swifthal_timer *timer = arg;
+  struct swifthal_timer *timer = arg;
 
   if (timer) {
     uint64_t interval = (uint64_t)period * NSEC_PER_MSEC;
 
+    timer->type = type;
     dispatch_source_set_timer(
         timer->source, dispatch_time(DISPATCH_TIME_NOW, interval),
         (type == SWIFT_TIMER_TYPE_ONESHOT) ? DISPATCH_TIME_FOREVER : interval,
         0);
+    dispatch_resume(timer->source);
     return 0;
   }
 
