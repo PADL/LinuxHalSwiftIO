@@ -92,8 +92,8 @@ int swifthal_fs_rename(const char *from, char *to) {
 int swifthal_fs_write(void *fp, const void *buf, ssize_t size) {
   size_t nbytes;
 
-  nbytes = fwrite(buf, size, 1, fp);
-  if (nbytes != 1) {
+  nbytes = fwrite(buf, 1, size, fp);
+  if (nbytes == 0) {
     if (ferror(fp))
       return -errno;
     return -EIO;
@@ -105,8 +105,8 @@ int swifthal_fs_write(void *fp, const void *buf, ssize_t size) {
 int swifthal_fs_read(void *fp, void *buf, ssize_t size) {
   size_t nbytes;
 
-  nbytes = fread(buf, size, 1, fp);
-  if (nbytes != 1) {
+  nbytes = fread(buf, 1, size, fp);
+  if (nbytes == 0) {
     if (ferror(fp))
       return -errno;
     if (feof(fp))
