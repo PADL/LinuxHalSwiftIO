@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/PADL/IORingSwift",
       "state" : {
-        "revision" : "1679a5e1cd4ccc2577315e4335f73c99241e438f",
-        "version" : "0.1.9"
+        "revision" : "f9dbe99bc9850b827cfe26c3a1966026b28f9f3f",
+        "version" : "1.0.0"
       }
     },
     {
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/PADL/SocketAddress",
       "state" : {
-        "revision" : "f5bf2f1daed55a3148ba3e939df32c36960b4195",
-        "version" : "0.2.0"
+        "revision" : "8a586b86a77cddb1a70ff7ab539e5c22d729fb84",
+        "version" : "0.5.0"
       }
     },
     {
@@ -41,8 +41,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dfed/swift-async-queue",
       "state" : {
-        "revision" : "1e9c0dc0edddf04fdc45b8aa19802bf327f97771",
-        "version" : "0.7.1"
+        "revision" : "721e823ee0e19ca64d1c983347c26aacdf9afddd",
+        "version" : "1.0.1"
       }
     },
     {
