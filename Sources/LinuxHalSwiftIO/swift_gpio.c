@@ -121,15 +121,19 @@ int swifthal_gpio_close(void *arg) {
   struct swifthal_gpio *gpio = (struct swifthal_gpio *)arg;
 
   if (gpio) {
-#ifdef __linux__
-    if (gpio->chip)
-      gpiod_chip_close(gpio->chip);
-#endif
+    // Cancel and release the dispatch source before closing the chip:
+    // gpiod_chip_close() drops the line's event fd, and on
+    // swift-corelibs-libdispatch the cancel path will EPOLL_CTL_DEL the fd
+    // and trap on EBADF if it's already gone.
     if (gpio->source) {
       dispatch_source_cancel(gpio->source);
       dispatch_resume(gpio->source);
       dispatch_release(gpio->source);
     }
+#ifdef __linux__
+    if (gpio->chip)
+      gpiod_chip_close(gpio->chip);
+#endif
     if (gpio->block)
       _Block_release(gpio->block);
     free(gpio);
