@@ -125,8 +125,11 @@ int swifthal_gpio_close(void *arg) {
     if (gpio->chip)
       gpiod_chip_close(gpio->chip);
 #endif
-    if (gpio->source)
+    if (gpio->source) {
+      dispatch_source_cancel(gpio->source);
+      dispatch_resume(gpio->source);
       dispatch_release(gpio->source);
+    }
     if (gpio->block)
       _Block_release(gpio->block);
     free(gpio);
@@ -177,6 +180,8 @@ int swifthal_gpio_config(void *arg,
   lrc.flags = 0;
 
   if (gpio->source) {
+    dispatch_source_cancel(gpio->source);
+    dispatch_resume(gpio->source);
     dispatch_release(gpio->source);
     gpio->source = NULL;
   }
