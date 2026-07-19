@@ -72,13 +72,16 @@ int swifthal_i2c_config(void *arg, unsigned int speed) {
 #ifdef __linux__
   struct swifthal_i2c *i2c = (struct swifthal_i2c *)arg;
 
+  if (i2c == NULL)
+    return -EINVAL;
+
   syslog(LOG_INFO,
          "LinuxHalSwiftIO: I2C speed can only be configured "
          "by driver or device tree (device %d)",
          i2c->id);
   return 0;
 #else
-  return -EINVAL;
+  return -ENOSYS;
 #endif
 }
 
@@ -89,7 +92,7 @@ int swifthal_i2c_write(void *arg,
 #ifdef __linux__
   const struct swifthal_i2c *i2c = arg;
 
-  if (i2c == NULL)
+  if (i2c == NULL || length < 0)
     return -EINVAL;
 
   if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 || write(i2c->fd, buf, length) < 0)
@@ -108,7 +111,7 @@ int swifthal_i2c_read(void *arg,
 #ifdef __linux__
   const struct swifthal_i2c *i2c = arg;
 
-  if (i2c == NULL)
+  if (i2c == NULL || length < 0)
     return -EINVAL;
 
   if (ioctl(i2c->fd, I2C_SLAVE, address) < 0 || read(i2c->fd, buf, length) < 0)
@@ -135,13 +138,20 @@ int swifthal_i2c_write_read(void *arg,
   if (i2c == NULL)
     return -EINVAL;
 
+  if (num_write < 0 || num_read < 0 || num_write > UINT16_MAX ||
+      num_read > UINT16_MAX)
+    return -EINVAL;
+
   messages[0].addr = addr;
   messages[0].flags = 0;
   messages[0].len = num_write;
   messages[0].buf = (uint8_t *)write_buf;
 
+  // I2C_M_RD alone: the kernel emits a repeated START and addr+R before the
+  // read segment. I2C_M_NOSTART would suppress that (and is rejected by most
+  // adapters), breaking the combined write-then-read transaction.
   messages[1].addr = addr;
-  messages[1].flags = I2C_M_RD | I2C_M_NOSTART;
+  messages[1].flags = I2C_M_RD;
   messages[1].len = num_read;
   messages[1].buf = read_buf;
 
