@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 
 #include "swift_hal_internal.h"
 
@@ -27,6 +28,7 @@ struct swifthal_timer {
   swift_timer_type_t type;
   dispatch_source_t source;
   _Atomic(unsigned int) status;
+  bool suspended;
 };
 
 void *swifthal_timer_open(void) {
@@ -43,6 +45,7 @@ void *swifthal_timer_open(void) {
   }
 
   timer->type = SWIFT_TIMER_TYPE_ONESHOT;
+  timer->suspended = true; // dispatch sources are created suspended
 
   return timer;
 }
@@ -52,7 +55,11 @@ int swifthal_timer_close(void *arg) {
 
   if (timer) {
     dispatch_source_cancel(timer->source);
-    dispatch_resume(timer->source);
+    // Only resume if currently suspended: releasing a suspended source traps,
+    // and over-resuming an already-running source traps. Bring the suspend
+    // count to exactly zero before releasing.
+    if (timer->suspended)
+      dispatch_resume(timer->source);
     dispatch_release(timer->source);
     free(timer);
     return 0;
@@ -72,7 +79,12 @@ int swifthal_timer_start(void *arg, swift_timer_type_t type, ssize_t period) {
         timer->source, dispatch_time(DISPATCH_TIME_NOW, interval),
         (type == SWIFT_TIMER_TYPE_ONESHOT) ? DISPATCH_TIME_FOREVER : interval,
         0);
-    dispatch_resume(timer->source);
+    // Resume only if suspended so re-arming an already-running timer does not
+    // over-resume the source.
+    if (timer->suspended) {
+      dispatch_resume(timer->source);
+      timer->suspended = false;
+    }
     return 0;
   }
 
