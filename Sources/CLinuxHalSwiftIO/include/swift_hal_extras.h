@@ -14,22 +14,35 @@
 // limitations under the License.
 //
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
+#pragma once
 
-#include "swift_hal_internal.h"
+///
+/// GPIO
+///
 
-int swift_eth_setup_mac(const uint8_t *mac) { return -ENOSYS; }
+int swifthal_gpio_get_fd(const void *_Nonnull gpio);
 
-int swift_eth_tx_register(int (*send)(const uint8_t *, int)) { return -ENOSYS; }
+///
+/// I2C
+///
 
-int swift_eth_rx(uint8_t *data, uint16_t len) { return -ENOSYS; }
+int swifthal_i2c_get_fd(const void *_Nonnull i2c);
+int swifthal_i2c_set_addr(const void *_Nonnull i2c, uint8_t addr);
 
-int swift_eth_event_send(int32_t event_id,
-                         void *event_data,
-                         ssize_t event_data_size,
-                         ssize_t ticks_to_wait) {
-  return -ENOSYS;
-}
+///
+/// SPI
+///
+
+#ifndef SWIFT_SPI_TRANSFER_8_BITS
+#define SWIFT_SPI_TRANSFER_8_BITS (1 << 5) // undocumented
+#endif
+
+int swifthal_spi_get_fd(const void *_Nonnull spi);
+
+///
+/// UART
+///
+
+int swifthal_uart_data_bits_set(const void *_Nonnull uart,
+                                swift_uart_data_bits_t data_bits);
+int swifthal_uart_get_fd(const void *_Nonnull uart);

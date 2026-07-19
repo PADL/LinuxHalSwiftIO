@@ -1,5 +1,6 @@
-// swift-tools-version: 5.7
-// The swift-tools-version declares the minimum version of Swift required to build this package.
+// swift-tools-version: 6.3
+// The @c attribute used by the native-Swift HAL requires the Swift 6.3 compiler;
+// gate older toolchains here rather than failing mid-build with cryptic errors.
 
 import Foundation
 import PackageDescription
@@ -51,13 +52,25 @@ let package = Package(
     .package(url: "https://github.com/apple/swift-system", from: "1.0.0"),
   ],
   targets: [
+    // Residual C the Swift HAL calls (inline-assembly hwcycle, termios2 UART
+    // helpers, fs mount point, ioctl/mq/syslog shims) plus the public HAL headers.
     .target(
-      name: "LinuxHalSwiftIO",
+      name: "CLinuxHalSwiftIO",
       dependencies: [
         .product(name: "CSwiftIO", package: "SwiftIO"),
       ],
       linkerSettings: [
         .linkedLibrary("gpiod", .when(platforms: [.linux])),
+      ]
+    ),
+    // Native-Swift HAL implementation. Exports the same C ABI via @c and
+    // re-exports the C module so `import LinuxHalSwiftIO` still surfaces the
+    // HAL declarations to consumers (AsyncSwiftIO, SwiftIO).
+    .target(
+      name: "LinuxHalSwiftIO",
+      dependencies: [
+        "CLinuxHalSwiftIO",
+        .product(name: "CSwiftIO", package: "SwiftIO"),
       ]
     ),
     .target(
@@ -98,5 +111,7 @@ let package = Package(
         .target(name: "AsyncSwiftIO"),
       ]
     ),
-  ]
+  ],
+  // Keep the Swift 5 language mode the package built with under tools 5.7.
+  swiftLanguageModes: [.v5]
 )

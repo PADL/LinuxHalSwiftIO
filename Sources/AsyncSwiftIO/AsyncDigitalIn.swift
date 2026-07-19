@@ -51,7 +51,7 @@ private extension DigitalIn {
 
   func _setInterruptBlock(
     _ mode: DigitalIn.InterruptMode,
-    callback: @escaping (UInt8, timespec) -> ()
+    callback: @escaping (Bool, timespec) -> ()
   ) throws(SwiftIO.Errno) {
     try withObj { obj in
       swifthal_gpio_interrupt_config(obj, getInterruptModeRawValue(mode))
@@ -83,7 +83,7 @@ public extension DigitalIn {
       do {
         try _setInterruptBlock(mode) { risingEdge, ts in
           let timeInterval = TimeInterval(ts.tv_sec) + TimeInterval(ts.tv_nsec) / 1_000_000_000.0
-          continuation.yield((risingEdge != 0, Date(timeIntervalSince1970: timeInterval)))
+          continuation.yield((risingEdge, Date(timeIntervalSince1970: timeInterval)))
         }
       } catch {
         continuation.finish(throwing: error)

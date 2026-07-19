@@ -14,49 +14,14 @@
 // limitations under the License.
 //
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
+// The rest of the platform HAL (sleep/wait/uptime/random) is implemented in
+// native Swift (Sources/LinuxHalSwiftIO/Platform.swift). The two hardware-cycle
+// functions remain in C because they require inline assembly to read the
+// per-architecture cycle counter, which Swift cannot express.
+
 #include <inttypes.h>
 #include <time.h>
 #include <stdatomic.h>
-#include <sys/random.h>
-#ifdef __linux__
-#include <sys/sysinfo.h>
-#endif
-
-#include "swift_hal_internal.h"
-
-void swifthal_ms_sleep(ssize_t ms) {
-  struct timespec ts, rem;
-
-  if (ms <= 0)
-    return;
-
-  // nanosleep avoids usleep's useconds_t (32-bit) truncation for large delays
-  // and correctly handles interruption by a signal.
-  ts.tv_sec = ms / 1000;
-  ts.tv_nsec = (ms % 1000) * 1000000L;
-
-  while (nanosleep(&ts, &rem) < 0 && errno == EINTR)
-    ts = rem;
-}
-
-void swifthal_us_wait(uint32_t us) { usleep(us); }
-
-int64_t swifthal_uptime_get(void) {
-#ifdef __linux__
-  struct sysinfo info;
-  if (sysinfo(&info) < 0)
-    return -errno;
-
-  return (int64_t)info.uptime * 1000;
-#else
-  return 0;
-#endif
-}
 
 uint32_t swifthal_hwcycle_get(void) {
 #if __x86_64__
@@ -93,8 +58,8 @@ uint32_t swifthal_hwcycle_to_ns(unsigned int cycles) {
     return 0;
   return (uint32_t)((uint64_t)cycles * 1000000000ULL / freq);
 #elif defined(__x86_64__)
-  // The TSC frequency is not architecturally discoverable; calibrate it once
-  // against CLOCK_MONOTONIC and cache the result.
+  // The TSC frequency is not architecturally discoverable: calibrate against
+  // CLOCK_MONOTONIC (first call blocks ~10ms; racing callers store ~equal hz).
   static _Atomic(uint64_t) tsc_hz = 0;
   uint64_t hz = atomic_load_explicit(&tsc_hz, memory_order_relaxed);
 
@@ -125,61 +90,5 @@ uint32_t swifthal_hwcycle_to_ns(unsigned int cycles) {
   return (uint32_t)((uint64_t)cycles * 1000000000ULL / hz);
 #else
 #error implement swifthal_hwcycle_to_ns() for your platform
-#endif
-}
-
-#if defined(__linux__)
-static int swifthal__urandom_fill(uint8_t *buf, ssize_t length) {
-  ssize_t total = 0;
-  int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-
-  if (fd < 0)
-    return -1;
-
-  while (total < length) {
-    ssize_t n = read(fd, buf + total, (size_t)(length - total));
-    if (n < 0) {
-      if (errno == EINTR)
-        continue;
-      break;
-    }
-    if (n == 0)
-      break;
-    total += n;
-  }
-
-  close(fd);
-  return total == length ? 0 : -1;
-}
-#endif
-
-void swiftHal_randomGet(uint8_t *buf, ssize_t length) {
-#if defined(__linux__)
-  ssize_t total = 0;
-
-  if (length < 0)
-    return;
-
-  // getrandom() may return short or fail with EINTR before the entropy pool is
-  // initialized; ignoring that leaves the buffer partially/fully uninitialized
-  // while callers treat it as random (key/nonce) material. Fill completely.
-  while (total < length) {
-    ssize_t n = getrandom(buf + total, (size_t)(length - total), 0);
-    if (n < 0) {
-      if (errno == EINTR)
-        continue;
-      // getrandom() may be unavailable (pre-3.17 kernel, or blocked by a
-      // seccomp policy, returning ENOSYS/EFAULT). Fall back to /dev/urandom
-      // rather than crashing the process or handing back non-random bytes.
-      if (swifthal__urandom_fill(buf + total, length - total) == 0)
-        return;
-      abort(); // no entropy source available: fail closed
-    }
-    total += n;
-  }
-#elif defined(__APPLE__)
-  arc4random_buf(buf, length);
-#else
-#error define swiftHal_randomGet for your platform
 #endif
 }

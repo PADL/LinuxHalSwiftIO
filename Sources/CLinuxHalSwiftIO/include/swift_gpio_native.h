@@ -14,20 +14,16 @@
 // limitations under the License.
 //
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
-#include <limits.h>
+// Exposes libgpiod to the native-Swift GPIO implementation (GPIO.swift). The
+// request-type/flag values are enum constants (not bare macros) and the structs
+// import cleanly, so no wrappers are needed; Swift calls gpiod directly.
 
-#include "swift_hal_internal.h"
+#pragma once
 
-void *swifthal_adc_open(int id) { return NULL; }
+#ifdef __linux__
+#include <gpiod.h>
+#endif
 
-int swifthal_adc_close(void *adc) { return -ENOSYS; }
-
-int swifthal_adc_read(void *adc, uint16_t *sample_buffer) { return -ENOSYS; }
-
-int swifthal_adc_info_get(void *adc, swift_adc_info_t *info) { return -ENOSYS; }
-
-int swifthal_adc_dev_number_get(void) { return 0; }
+// The libgpiod consumer label, as a permanent C string literal (infallible,
+// unlike a Swift String or strdup()).
+static inline const char *swifthal_gpio__consumer(void) { return "SwiftIO"; }
