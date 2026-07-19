@@ -385,7 +385,10 @@ static ssize_t swifthal_uart__read_buffer(struct swifthal_uart *uart,
     else if (err == 0)
       break; // timed out
 
-    if (pollfd.revents != POLLIN)
+    if (pollfd.revents & (POLLERR | POLLHUP | POLLNVAL))
+      return -EIO;
+
+    if ((pollfd.revents & POLLIN) == 0)
       continue;
 
     nbytes = read(pollfd.fd, &uart->read_buf[uart->read_buf_offset],
@@ -420,6 +423,7 @@ int swifthal_uart_read(void *arg, uint8_t *buf, ssize_t length, int timeout) {
       memcpy(buf, &uart->read_buf[uart->read_buf_consumed], nconsume);
       uart->read_buf_consumed += nconsume;
       assert(uart->read_buf_consumed <= uart->read_buf_offset);
+      buf += nconsume;
       nremain -= nconsume;
     }
 
