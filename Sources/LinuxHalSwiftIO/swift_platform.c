@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <time.h>
+#include <stdatomic.h>
 #include <sys/random.h>
 #ifdef __linux__
 #include <sys/sysinfo.h>
@@ -27,7 +28,20 @@
 
 #include "swift_hal_internal.h"
 
-void swifthal_ms_sleep(ssize_t ms) { usleep(ms * 1000); }
+void swifthal_ms_sleep(ssize_t ms) {
+  struct timespec ts, rem;
+
+  if (ms <= 0)
+    return;
+
+  // nanosleep avoids usleep's useconds_t (32-bit) truncation for large delays
+  // and correctly handles interruption by a signal.
+  ts.tv_sec = ms / 1000;
+  ts.tv_nsec = (ms % 1000) * 1000000L;
+
+  while (nanosleep(&ts, &rem) < 0 && errno == EINTR)
+    ts = rem;
+}
 
 void swifthal_us_wait(uint32_t us) { usleep(us); }
 
@@ -62,15 +76,76 @@ uint32_t swifthal_hwcycle_get(void) {
 }
 
 uint32_t swifthal_hwcycle_to_ns(unsigned int cycles) {
-  struct timespec tp;
-  if (clock_getres(CLOCK_MONOTONIC, &tp) < 0)
+  // swifthal_hwcycle_get() reads a raw hardware counter, so the conversion
+  // must divide by the counter's frequency (NOT clock_getres(), which returns
+  // the software clock's 1ns resolution and left this a no-op multiply).
+#if defined(__aarch64__)
+  uint64_t freq;
+  asm volatile("mrs %0, cntfrq_el0" : "=r"(freq));
+  if (freq == 0)
     return 0;
-  return (uint32_t)((uint64_t)cycles * (tp.tv_sec * 1000000000ULL + tp.tv_nsec));
+  return (uint32_t)((uint64_t)cycles * 1000000000ULL / freq);
+#elif defined(__arm__)
+  uint32_t freq;
+  asm volatile("mrc p15, 0, %0, c14, c0, 0" : "=r"(freq)); // CNTFRQ
+  if (freq == 0)
+    return 0;
+  return (uint32_t)((uint64_t)cycles * 1000000000ULL / freq);
+#elif defined(__x86_64__)
+  // The TSC frequency is not architecturally discoverable; calibrate it once
+  // against CLOCK_MONOTONIC and cache the result.
+  static _Atomic(uint64_t) tsc_hz = 0;
+  uint64_t hz = atomic_load_explicit(&tsc_hz, memory_order_relaxed);
+
+  if (hz == 0) {
+    struct timespec cal = {.tv_sec = 0, .tv_nsec = 10 * 1000 * 1000}; // 10ms
+    struct timespec t0, t1;
+    unsigned a, d;
+    uint64_t c0, c1, elapsed_ns;
+
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    asm volatile("rdtsc" : "=a"(a), "=d"(d));
+    c0 = ((uint64_t)d << 32) | a;
+    nanosleep(&cal, NULL);
+    asm volatile("rdtsc" : "=a"(a), "=d"(d));
+    c1 = ((uint64_t)d << 32) | a;
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+
+    elapsed_ns = (uint64_t)(t1.tv_sec - t0.tv_sec) * 1000000000ULL +
+                 (uint64_t)(t1.tv_nsec - t0.tv_nsec);
+    if (elapsed_ns == 0)
+      return 0;
+    hz = (c1 - c0) * 1000000000ULL / elapsed_ns;
+    if (hz == 0)
+      return 0;
+    atomic_store_explicit(&tsc_hz, hz, memory_order_relaxed);
+  }
+
+  return (uint32_t)((uint64_t)cycles * 1000000000ULL / hz);
+#else
+#error implement swifthal_hwcycle_to_ns() for your platform
+#endif
 }
 
 void swiftHal_randomGet(uint8_t *buf, ssize_t length) {
 #if defined(__linux__)
-  getrandom(buf, length, 0);
+  ssize_t total = 0;
+
+  if (length < 0)
+    return;
+
+  // getrandom() may return short or fail with EINTR before the entropy pool is
+  // initialized; ignoring that leaves the buffer partially/fully uninitialized
+  // while callers treat it as random (key/nonce) material. Fill completely.
+  while (total < length) {
+    ssize_t n = getrandom(buf + total, (size_t)(length - total), 0);
+    if (n < 0) {
+      if (errno == EINTR)
+        continue;
+      abort(); // fail closed rather than hand back non-random bytes
+    }
+    total += n;
+  }
 #elif defined(__APPLE__)
   arc4random_buf(buf, length);
 #else
