@@ -213,6 +213,11 @@ int swifthal_spi_transceive(void *arg,
   if (spi == NULL || w_buf == NULL || r_buf == NULL)
     return -EINVAL;
 
+  // Guard against a negative length: it would convert to a huge size_t and
+  // overflow the memset / spi_ioc_transfer len field.
+  if (w_length < 0 || r_length < 0)
+    return -EINVAL;
+
   memset(xfer, 0, sizeof(xfer));
   memset(r_buf, 0, r_length);
 
