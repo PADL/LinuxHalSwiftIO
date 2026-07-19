@@ -136,10 +136,17 @@ int swifthal_os_mq_destroy(const void *mp) {
   struct swifthal_os_task__mqueue *mq = (struct swifthal_os_task__mqueue *)mp;
 
   if (mq) {
-    if (mq_close(mq->mq) != 0 || mq_unlink(mq->name) != 0)
-      return -errno;
+    int err = 0;
+
+    // Attempt both operations and always free: short-circuiting on the first
+    // failure would leak the descriptor, the heap struct, and/or leave the
+    // named queue behind in /dev/mqueue.
+    if (mq_close(mq->mq) != 0)
+      err = -errno;
+    if (mq_unlink(mq->name) != 0 && err == 0)
+      err = -errno;
     free(mq);
-    return 0;
+    return err;
   }
 
   return -EINVAL;
@@ -212,21 +219,29 @@ int swifthal_os_mq_recv(const void *mp, void *data, int timeout) {
 int swifthal_os_mq_purge(const void *mp) {
 #ifdef __linux__
   const struct swifthal_os_task__mqueue *mq = mp;
-  struct mq_attr attr;
   unsigned int prio;
   void *data;
 
-  if (mq_getattr(mq->mq, &attr) != 0)
-    return -errno;
+  // Drain with a non-blocking receive (absolute deadline in the past) until the
+  // queue reports empty. Trusting mq_curmsgs and then blocking in mq_receive
+  // would hang if another consumer drained the queue in between, and a
+  // caller-controlled alloca(mq_size) risks a stack overflow.
+  data = malloc(mq->mq_size);
+  if (data == NULL)
+    return -ENOMEM;
 
-  data = alloca(mq->mq_size);
+  for (;;) {
+    struct timespec ts = {.tv_sec = 0, .tv_nsec = 0};
 
-  while (attr.mq_curmsgs) {
-    if (mq_receive(mq->mq, data, mq->mq_size, &prio) != 0)
+    if (mq_timedreceive(mq->mq, data, mq->mq_size, &prio, &ts) < 0) {
+      if (errno == ETIMEDOUT || errno == EAGAIN)
+        break; // queue empty
+      free(data);
       return -errno;
-    attr.mq_curmsgs--;
+    }
   }
 
+  free(data);
   return 0;
 #else
   return -ENOSYS;
@@ -298,6 +313,7 @@ struct swifthal_os_task__semaphore {
   sem_t sem;
   int init_cnt;
   int limit;
+  pthread_mutex_t give_lock;
 };
 
 const void *swifthal_os_sem_create(uint32_t init_cnt, uint32_t limit) {
@@ -310,6 +326,11 @@ const void *swifthal_os_sem_create(uint32_t init_cnt, uint32_t limit) {
   if (sem == NULL)
     return NULL;
   if (sem_init(&sem->sem, 0, init_cnt) != 0) {
+    free(sem);
+    return NULL;
+  }
+  if (pthread_mutex_init(&sem->give_lock, NULL) != 0) {
+    sem_destroy(&sem->sem);
     free(sem);
     return NULL;
   }
@@ -326,6 +347,7 @@ int swifthal_os_sem_destroy(const void *arg) {
   if (sem) {
     if (sem_destroy(&sem->sem) != 0)
       return -errno;
+    pthread_mutex_destroy(&sem->give_lock);
     free(sem);
     return 0;
   }
@@ -359,11 +381,23 @@ int swifthal_os_sem_take(const void *arg, int timeout) {
 int swifthal_os_sem_give(const void *arg) {
   struct swifthal_os_task__semaphore *sem =
       (struct swifthal_os_task__semaphore *)arg;
+  int value = 0;
+  int err = 0;
 
-  if (sem_post(&sem->sem) != 0)
+  // Enforce the counting-semaphore limit (POSIX sem_post would happily count
+  // up to SEM_VALUE_MAX). Serialize give against itself so the getvalue/post
+  // pair is atomic w.r.t. other givers.
+  if (pthread_mutex_lock(&sem->give_lock) != 0)
     return -errno;
 
-  return 0;
+  if (sem_getvalue(&sem->sem, &value) != 0)
+    err = -errno;
+  else if (value < sem->limit && sem_post(&sem->sem) != 0)
+    err = -errno;
+
+  pthread_mutex_unlock(&sem->give_lock);
+
+  return err;
 }
 
 int swifthal_os_sem_reset(const void *arg) {
