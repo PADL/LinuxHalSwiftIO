@@ -92,6 +92,11 @@ int swifthal_fs_rename(const char *from, char *to) {
 int swifthal_fs_write(void *fp, const void *buf, ssize_t size) {
   size_t nbytes;
 
+  if (size < 0)
+    return -EINVAL;
+  if (size == 0)
+    return 0; // a zero-byte write is not an error
+
   nbytes = fwrite(buf, 1, size, fp);
   if (nbytes == 0) {
     if (ferror(fp))
@@ -104,6 +109,11 @@ int swifthal_fs_write(void *fp, const void *buf, ssize_t size) {
 
 int swifthal_fs_read(void *fp, void *buf, ssize_t size) {
   size_t nbytes;
+
+  if (size < 0)
+    return -EINVAL;
+  if (size == 0)
+    return 0; // a zero-byte read is not an error
 
   nbytes = fread(buf, 1, size, fp);
   if (nbytes == 0) {
@@ -132,13 +142,15 @@ int swifthal_fs_seek(void *fp, ssize_t offset, int whence) {
     break;
   }
 
-  if (fseek(fp, offset, fwhence) != 0)
+  // fseeko/ftello use off_t so the seek itself is correct for >2GiB offsets
+  // (the int return type still bounds what tell can report back).
+  if (fseeko(fp, offset, fwhence) != 0)
     return -errno;
   return 0;
 }
 
 int swifthal_fs_tell(void *fp) {
-  long offset = ftell(fp);
+  off_t offset = ftello(fp);
   if (offset == -1)
     return -errno;
   return (int)offset;
@@ -173,6 +185,9 @@ int swifthal_fs_readdir(void *dp, swift_fs_dirent_t *entry) {
   struct dirent *dentry;
 
 next:
+  // readdir() returns NULL both at end-of-directory and on error; per POSIX,
+  // errno must be cleared first to tell them apart.
+  errno = 0;
   dentry = readdir(dp);
   if (dentry == NULL) {
     if (errno != 0)
@@ -183,22 +198,38 @@ next:
     }
   }
 
-  if (dentry->d_type == DT_DIR) {
-    entry->type = SWIFT_FS_DIR_ENTRY_DIR;
-    strncpy(entry->name, dentry->d_name, sizeof(entry->name) - 1);
-    entry->name[sizeof(entry->name) - 1] = '\0';
-    entry->size = 0;
-  } else if (dentry->d_type == DT_REG) {
-    struct stat statbuf;
+  {
+    unsigned char d_type = dentry->d_type;
 
-    entry->type = SWIFT_FS_DIR_ENTRY_FILE;
-    strncpy(entry->name, dentry->d_name, sizeof(entry->name) - 1);
-    entry->name[sizeof(entry->name) - 1] = '\0';
-    if (fstatat(dirfd(dp), dentry->d_name, &statbuf, 0) < 0)
-      return -errno;
-    entry->size = (unsigned int)statbuf.st_size;
-  } else
-    goto next;
+    // Some filesystems always report DT_UNKNOWN; stat to classify the entry.
+    if (d_type == DT_UNKNOWN) {
+      struct stat sb;
+
+      if (fstatat(dirfd(dp), dentry->d_name, &sb, 0) < 0)
+        return -errno;
+      if (S_ISDIR(sb.st_mode))
+        d_type = DT_DIR;
+      else if (S_ISREG(sb.st_mode))
+        d_type = DT_REG;
+    }
+
+    if (d_type == DT_DIR) {
+      entry->type = SWIFT_FS_DIR_ENTRY_DIR;
+      strncpy(entry->name, dentry->d_name, sizeof(entry->name) - 1);
+      entry->name[sizeof(entry->name) - 1] = '\0';
+      entry->size = 0;
+    } else if (d_type == DT_REG) {
+      struct stat statbuf;
+
+      entry->type = SWIFT_FS_DIR_ENTRY_FILE;
+      strncpy(entry->name, dentry->d_name, sizeof(entry->name) - 1);
+      entry->name[sizeof(entry->name) - 1] = '\0';
+      if (fstatat(dirfd(dp), dentry->d_name, &statbuf, 0) < 0)
+        return -errno;
+      entry->size = statbuf.st_size;
+    } else
+      goto next;
+  }
 
   return 0;
 }
@@ -217,11 +248,17 @@ int swifthal_fs_stat(const char *path, swift_fs_dirent_t *entry) {
 
   if (S_ISDIR(statbuf.st_mode)) {
     entry->type = SWIFT_FS_DIR_ENTRY_DIR;
+    entry->size = 0;
   } else if (S_ISREG(statbuf.st_mode)) {
     entry->type = SWIFT_FS_DIR_ENTRY_FILE;
+    entry->size = statbuf.st_size;
   } else {
     return -ENOENT;
   }
+
+  // The name field is not derivable here (the caller passed a path); make it a
+  // defined empty string rather than leaving caller stack garbage.
+  entry->name[0] = '\0';
 
   return 0;
 }
