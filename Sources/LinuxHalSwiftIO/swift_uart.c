@@ -385,19 +385,24 @@ static ssize_t swifthal_uart__read_buffer(struct swifthal_uart *uart,
     else if (err == 0)
       break; // timed out
 
+    // Drain readable data first: a hangup (POLLHUP) can be reported together
+    // with POLLIN while bytes are still buffered in the device, and those must
+    // not be discarded. Only treat an error/hangup as fatal once there is
+    // nothing left to read.
+    if (pollfd.revents & POLLIN) {
+      nbytes = read(pollfd.fd, &uart->read_buf[uart->read_buf_offset],
+                    SWIFTHAL_UART_REMAIN(uart));
+      if (nbytes < 0)
+        return -errno;
+      if (nbytes == 0)
+        break; // EOF: return the bytes already buffered
+      uart->read_buf_offset += nbytes;
+      assert(uart->read_buf_offset <= uart->read_buf_len);
+      continue;
+    }
+
     if (pollfd.revents & (POLLERR | POLLHUP | POLLNVAL))
       return -EIO;
-
-    if ((pollfd.revents & POLLIN) == 0)
-      continue;
-
-    nbytes = read(pollfd.fd, &uart->read_buf[uart->read_buf_offset],
-                  SWIFTHAL_UART_REMAIN(uart));
-    if (nbytes < 0)
-      return -errno;
-
-    uart->read_buf_offset += nbytes;
-    assert(uart->read_buf_offset <= uart->read_buf_len);
   }
 
   return SWIFTHAL_UART_REMAIN(uart);

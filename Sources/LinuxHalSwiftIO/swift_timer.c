@@ -92,10 +92,16 @@ int swifthal_timer_start(void *arg, swift_timer_type_t type, ssize_t period) {
 }
 
 int swifthal_timer_stop(void *arg) {
-  const struct swifthal_timer *timer = arg;
+  struct swifthal_timer *timer = arg;
 
   if (timer) {
-    dispatch_source_cancel(timer->source);
+    // Suspend rather than cancel: cancellation is permanent on a dispatch
+    // source, so a cancel here would make a subsequent timer_start unable to
+    // re-arm the timer. Suspending pauses it and lets start() resume.
+    if (!timer->suspended) {
+      dispatch_suspend(timer->source);
+      timer->suspended = true;
+    }
     return 0;
   }
   return -EINVAL;
@@ -108,8 +114,9 @@ int swifthal_timer_add_callback(void *arg,
 
   if (timer) {
     dispatch_source_set_event_handler(timer->source, ^{
-      if (timer->type == SWIFT_TIMER_TYPE_ONESHOT)
-        dispatch_source_cancel(timer->source);
+      // A one-shot uses a DISPATCH_TIME_FOREVER interval, so it already fires
+      // only once; do not cancel it here, or timer_start could never re-arm it
+      // (cancellation is permanent). timer_stop suspends instead.
       atomic_fetch_add(&timer->status, 1);
       callback(param);
     });

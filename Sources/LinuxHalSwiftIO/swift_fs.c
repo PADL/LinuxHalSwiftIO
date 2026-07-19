@@ -205,8 +205,10 @@ next:
     if (d_type == DT_UNKNOWN) {
       struct stat sb;
 
+      // The entry may have been unlinked between readdir and here, or be a
+      // dangling symlink; skip it rather than aborting the whole enumeration.
       if (fstatat(dirfd(dp), dentry->d_name, &sb, 0) < 0)
-        return -errno;
+        goto next;
       if (S_ISDIR(sb.st_mode))
         d_type = DT_DIR;
       else if (S_ISREG(sb.st_mode))

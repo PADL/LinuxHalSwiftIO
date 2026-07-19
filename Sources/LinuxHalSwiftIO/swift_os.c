@@ -345,11 +345,15 @@ int swifthal_os_sem_destroy(const void *arg) {
       (struct swifthal_os_task__semaphore *)arg;
 
   if (sem) {
+    int err = 0;
+
+    // Always destroy the mutex and free, even if sem_destroy fails, so the
+    // give_lock and heap struct are not leaked.
     if (sem_destroy(&sem->sem) != 0)
-      return -errno;
+      err = -errno;
     pthread_mutex_destroy(&sem->give_lock);
     free(sem);
-    return 0;
+    return err;
   }
 
   return -EINVAL;
@@ -382,18 +386,21 @@ int swifthal_os_sem_give(const void *arg) {
   struct swifthal_os_task__semaphore *sem =
       (struct swifthal_os_task__semaphore *)arg;
   int value = 0;
-  int err = 0;
+  int err;
 
   // Enforce the counting-semaphore limit (POSIX sem_post would happily count
   // up to SEM_VALUE_MAX). Serialize give against itself so the getvalue/post
-  // pair is atomic w.r.t. other givers.
-  if (pthread_mutex_lock(&sem->give_lock) != 0)
-    return -errno;
+  // pair is atomic w.r.t. other givers. pthread_mutex_lock returns the error
+  // directly and does not set errno.
+  err = pthread_mutex_lock(&sem->give_lock);
+  if (err != 0)
+    return -err;
 
+  err = 0;
   if (sem_getvalue(&sem->sem, &value) != 0)
     err = -errno;
-  else if (value < sem->limit && sem_post(&sem->sem) != 0)
-    err = -errno;
+  else if ((sem->limit == 0 || value < sem->limit) && sem_post(&sem->sem) != 0)
+    err = -errno; // limit == 0 is treated as uncapped
 
   pthread_mutex_unlock(&sem->give_lock);
 

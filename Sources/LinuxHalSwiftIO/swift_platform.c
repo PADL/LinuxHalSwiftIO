@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <time.h>
@@ -127,6 +128,31 @@ uint32_t swifthal_hwcycle_to_ns(unsigned int cycles) {
 #endif
 }
 
+#if defined(__linux__)
+static int swifthal__urandom_fill(uint8_t *buf, ssize_t length) {
+  ssize_t total = 0;
+  int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+
+  if (fd < 0)
+    return -1;
+
+  while (total < length) {
+    ssize_t n = read(fd, buf + total, (size_t)(length - total));
+    if (n < 0) {
+      if (errno == EINTR)
+        continue;
+      break;
+    }
+    if (n == 0)
+      break;
+    total += n;
+  }
+
+  close(fd);
+  return total == length ? 0 : -1;
+}
+#endif
+
 void swiftHal_randomGet(uint8_t *buf, ssize_t length) {
 #if defined(__linux__)
   ssize_t total = 0;
@@ -142,7 +168,12 @@ void swiftHal_randomGet(uint8_t *buf, ssize_t length) {
     if (n < 0) {
       if (errno == EINTR)
         continue;
-      abort(); // fail closed rather than hand back non-random bytes
+      // getrandom() may be unavailable (pre-3.17 kernel, or blocked by a
+      // seccomp policy, returning ENOSYS/EFAULT). Fall back to /dev/urandom
+      // rather than crashing the process or handing back non-random bytes.
+      if (swifthal__urandom_fill(buf + total, length - total) == 0)
+        return;
+      abort(); // no entropy source available: fail closed
     }
     total += n;
   }
