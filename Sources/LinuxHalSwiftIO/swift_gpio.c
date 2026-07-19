@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdbool.h>
 #ifdef __linux__
 #include <gpiod.h>
 #endif
@@ -38,7 +39,25 @@ struct swifthal_gpio {
 #endif
   dispatch_queue_t queue;
   dispatch_source_t source;
+  bool source_suspended;
 };
+
+// Cancel and release the interrupt dispatch source, bringing its suspend count
+// to exactly zero first. libdispatch traps on releasing a suspended source and
+// on over-resuming an active one, so track whether we currently hold it
+// suspended and resume only when we do. Safe to call with no source installed.
+static void swifthal_gpio__release_source(struct swifthal_gpio *gpio) {
+  if (gpio->source == NULL)
+    return;
+
+  dispatch_source_cancel(gpio->source);
+  if (gpio->source_suspended) {
+    dispatch_resume(gpio->source);
+    gpio->source_suspended = false;
+  }
+  dispatch_release(gpio->source);
+  gpio->source = NULL;
+}
 
 static struct swifthal_gpio *
 swifthal_gpio__chip2gpio(int id,
@@ -125,11 +144,7 @@ int swifthal_gpio_close(void *arg) {
     // gpiod_chip_close() drops the line's event fd, and on
     // swift-corelibs-libdispatch the cancel path will EPOLL_CTL_DEL the fd
     // and trap on EBADF if it's already gone.
-    if (gpio->source) {
-      dispatch_source_cancel(gpio->source);
-      dispatch_resume(gpio->source);
-      dispatch_release(gpio->source);
-    }
+    swifthal_gpio__release_source(gpio);
 #ifdef __linux__
     if (gpio->chip)
       gpiod_chip_close(gpio->chip);
@@ -183,12 +198,7 @@ int swifthal_gpio_config(void *arg,
   lrc.consumer = SWIFTHAL_GPIO_CONSUMER;
   lrc.flags = 0;
 
-  if (gpio->source) {
-    dispatch_source_cancel(gpio->source);
-    dispatch_resume(gpio->source);
-    dispatch_release(gpio->source);
-    gpio->source = NULL;
-  }
+  swifthal_gpio__release_source(gpio);
 
   switch (direction) {
   case SWIFT_GPIO_DIRECTION_OUT:
@@ -260,6 +270,11 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
   if (gpio == NULL)
     return -EINVAL;
 
+  // Release any source from a previous interrupt_config so reconfiguring the
+  // edge mode does not leak the old dispatch source (which would keep watching
+  // the now-released line's stale event fd).
+  swifthal_gpio__release_source(gpio);
+
   lrc.consumer = SWIFTHAL_GPIO_CONSUMER;
   lrc.flags = 0;
 
@@ -300,6 +315,8 @@ int swifthal_gpio_interrupt_config(void *arg, swift_gpio_int_mode_t int_mode) {
   if (gpio->source == NULL)
     return -ENOMEM;
 
+  // dispatch sources are created suspended; interrupt_enable resumes.
+  gpio->source_suspended = true;
   gpio->int_mode = int_mode;
 
   return 0;
@@ -350,34 +367,45 @@ int swifthal_gpio_interrupt_callback_install(void *arg,
 }
 
 int swifthal_gpio_interrupt_callback_uninstall(void *arg) {
-  const struct swifthal_gpio *gpio = arg;
+  struct swifthal_gpio *gpio = arg;
 
   if (gpio == NULL)
     return -EINVAL;
 
-  dispatch_source_cancel(gpio->source);
+  if (gpio->source)
+    dispatch_source_cancel(gpio->source);
 
   return 0;
 }
 
 int swifthal_gpio_interrupt_enable(void *arg) {
-  const struct swifthal_gpio *gpio = arg;
+  struct swifthal_gpio *gpio = arg;
 
   if (gpio == NULL || gpio->source == NULL)
     return -EINVAL;
 
-  dispatch_resume(gpio->source);
+  // Idempotent: resume only when currently suspended, otherwise a second
+  // enable (or an enable after open) over-resumes the source and traps.
+  if (gpio->source_suspended) {
+    dispatch_resume(gpio->source);
+    gpio->source_suspended = false;
+  }
 
   return 0;
 }
 
 int swifthal_gpio_interrupt_disable(void *arg) {
-  const struct swifthal_gpio *gpio = arg;
+  struct swifthal_gpio *gpio = arg;
 
   if (gpio == NULL || gpio->source == NULL)
     return -EINVAL;
 
-  dispatch_suspend(gpio->source);
+  // Idempotent: suspend only when currently running, otherwise a second
+  // disable over-suspends and later traps on release.
+  if (!gpio->source_suspended) {
+    dispatch_suspend(gpio->source);
+    gpio->source_suspended = true;
+  }
 
   return 0;
 }
