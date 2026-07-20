@@ -58,8 +58,8 @@ uint32_t swifthal_hwcycle_to_ns(unsigned int cycles) {
     return 0;
   return (uint32_t)((uint64_t)cycles * 1000000000ULL / freq);
 #elif defined(__x86_64__)
-  // The TSC frequency is not architecturally discoverable; calibrate it once
-  // against CLOCK_MONOTONIC and cache the result.
+  // The TSC frequency is not architecturally discoverable: calibrate against
+  // CLOCK_MONOTONIC (first call blocks ~10ms; racing callers store ~equal hz).
   static _Atomic(uint64_t) tsc_hz = 0;
   uint64_t hz = atomic_load_explicit(&tsc_hz, memory_order_relaxed);
 

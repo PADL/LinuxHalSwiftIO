@@ -180,6 +180,22 @@ private func setDirentName(_ entry: UnsafeMutablePointer<swift_fs_dirent_t>, _ n
   }
 }
 
+// Fill entry type/size from a stat result; false for types the HAL does not
+// surface (neither a regular file nor a directory).
+private func setDirentTypeAndSize(_ entry: UnsafeMutablePointer<swift_fs_dirent_t>, _ sb: stat) -> Bool {
+  switch sb.st_mode & S_IFMT {
+  case S_IFDIR:
+    entry.pointee.type = SWIFT_FS_DIR_ENTRY_DIR
+    entry.pointee.size = 0
+  case S_IFREG:
+    entry.pointee.type = SWIFT_FS_DIR_ENTRY_FILE
+    entry.pointee.size = Int(sb.st_size)
+  default:
+    return false
+  }
+  return true
+}
+
 // Fill `entry` from one dirent: returns 0, a negative errno, or nil to skip.
 // d_name stays raw bytes: a String round-trip would mangle non-UTF-8 names.
 private func fillDirent(
@@ -189,40 +205,28 @@ private func fillDirent(
 ) -> CInt? {
   withUnsafePointer(to: &dentry.pointee.d_name) {
     $0.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: dentry.pointee.d_name)) { name -> CInt? in
-      var dType = dentry.pointee.d_type
+      let dType = dentry.pointee.d_type
 
-      // Some filesystems always report DT_UNKNOWN; stat to classify the entry.
-      if dType == DT_UNKNOWN {
+      if dType == UInt8(DT_DIR) {
+        // No stat needed: a directory entry's size is reported as 0.
+        entry.pointee.type = SWIFT_FS_DIR_ENTRY_DIR
+        entry.pointee.size = 0
+      } else if dType == UInt8(DT_REG) || dType == DT_UNKNOWN {
+        // DT_REG needs a stat for the size, and DT_UNKNOWN (filesystems that
+        // never fill d_type) for classification too.
         var sb = stat()
         if fstatat(dirfd(dir), name, &sb, 0) < 0 {
           // Skip entries lost to an unlink race (or dangling symlinks); surface
           // any other failure rather than silently omitting entries.
           return errno == ENOENT ? nil : -errno
         }
-        if sb.st_mode & S_IFMT == S_IFDIR {
-          dType = UInt8(DT_DIR)
-        } else if sb.st_mode & S_IFMT == S_IFREG {
-          dType = UInt8(DT_REG)
-        }
+        if !setDirentTypeAndSize(entry, sb) { return nil }
+      } else {
+        return nil // other types (symlink, socket, ...): skip
       }
 
-      if dType == UInt8(DT_DIR) {
-        entry.pointee.type = SWIFT_FS_DIR_ENTRY_DIR
-        setDirentName(entry, name)
-        entry.pointee.size = 0
-        return 0
-      } else if dType == UInt8(DT_REG) {
-        var sb = stat()
-        if fstatat(dirfd(dir), name, &sb, 0) < 0 {
-          // As above: tolerate losing a race with unlink, surface real errors.
-          return errno == ENOENT ? nil : -errno
-        }
-        entry.pointee.type = SWIFT_FS_DIR_ENTRY_FILE
-        setDirentName(entry, name)
-        entry.pointee.size = Int(sb.st_size)
-        return 0
-      }
-      return nil // neither directory nor regular file: skip
+      setDirentName(entry, name)
+      return 0
     }
   }
 }
@@ -258,16 +262,7 @@ func swifthal_fs_stat(_ path: UnsafePointer<CChar>?, _ entry: UnsafeMutablePoint
   guard let path, let entry else { return -EINVAL }
   var sb = stat()
   if stat(path, &sb) < 0 { return -errno }
-
-  if sb.st_mode & S_IFMT == S_IFDIR {
-    entry.pointee.type = SWIFT_FS_DIR_ENTRY_DIR
-    entry.pointee.size = 0
-  } else if sb.st_mode & S_IFMT == S_IFREG {
-    entry.pointee.type = SWIFT_FS_DIR_ENTRY_FILE
-    entry.pointee.size = Int(sb.st_size)
-  } else {
-    return -ENOENT
-  }
+  if !setDirentTypeAndSize(entry, sb) { return -ENOENT }
 
   // The name is not derivable from a path; make it a defined empty string.
   entry.pointee.name.0 = 0

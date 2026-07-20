@@ -17,7 +17,7 @@
 // termios2 line-configuration helpers for the native-Swift UART (UART.swift).
 // termios2 lives in <asm/termbits.h>, which redefines `struct termios` and so
 // cannot be exposed to Swift alongside Glibc's <termios.h>. Keeping it in this
-// isolated .c (declared via plain prototypes in swift_hal_native.h) confines that
+// isolated .c (declared via plain prototypes in swift_uart_native.h) confines that
 // conflict to C while Swift owns the open/buffering/poll logic.
 
 #include <errno.h>
