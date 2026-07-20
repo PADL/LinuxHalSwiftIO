@@ -141,7 +141,8 @@ actor IORing {
 
   func writeReadFixed(
     _ data: inout [UInt8],
-    count: Int? = nil,
+    writeCount: Int? = nil,
+    readCount: Int? = nil,
     offset: Int = -1,
     bufferIndex: UInt16,
     bufferOffset: Int = 0,

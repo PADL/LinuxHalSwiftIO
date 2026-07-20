@@ -24,6 +24,21 @@ import Darwin
 #endif
 import CLinuxHalSwiftIO
 
+// Glibc leaves DIR opaque, so dirent calls take an OpaquePointer; Darwin exposes
+// the struct, so DIR* imports as UnsafeMutablePointer<DIR>. Bridge the raw handle
+// to whichever the platform's readdir/dirfd/closedir expect.
+#if canImport(Darwin)
+typealias DIRPointer = UnsafeMutablePointer<DIR>
+private func dirPointer(_ dp: UnsafeMutableRawPointer) -> DIRPointer {
+  dp.assumingMemoryBound(to: DIR.self)
+}
+#else
+typealias DIRPointer = OpaquePointer
+private func dirPointer(_ dp: UnsafeMutableRawPointer) -> DIRPointer {
+  OpaquePointer(dp)
+}
+#endif
+
 // swifthal_mount_point_get() stays in C (swift_fs_native.c): it must return a
 // permanent C string, and a string literal there is infallible — unlike a
 // Swift String (no stable char* without a scoped withCString) or strdup (can
@@ -220,7 +235,7 @@ private func setDirentTypeAndSize(
 /// Fill `entry` from one dirent: returns 0, a negative errno, or nil to skip.
 /// d_name stays raw bytes: a String round-trip would mangle non-UTF-8 names.
 private func fillDirent(
-  _ dir: OpaquePointer,
+  _ dir: DIRPointer,
   _ dentry: UnsafeMutablePointer<dirent>,
   _ entry: UnsafeMutablePointer<swift_fs_dirent_t>
 ) -> CInt? {
@@ -261,7 +276,7 @@ func swifthal_fs_readdir(
   _ entry: UnsafeMutablePointer<swift_fs_dirent_t>?
 ) -> CInt {
   guard let dp, let entry else { return -EINVAL }
-  let dir = OpaquePointer(dp)
+  let dir = dirPointer(dp)
 
   while true {
     // readdir() returns NULL both at end-of-directory and on error; per POSIX,
@@ -280,7 +295,7 @@ func swifthal_fs_readdir(
 @c
 func swifthal_fs_closedir(_ dp: UnsafeMutableRawPointer?) -> CInt {
   guard let dp else { return -EINVAL }
-  if closedir(OpaquePointer(dp)) < 0 { return -errno }
+  if closedir(dirPointer(dp)) < 0 { return -errno }
   return 0
 }
 

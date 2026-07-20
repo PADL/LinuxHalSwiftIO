@@ -31,11 +31,12 @@ private struct CounterHandle {
 
 @c
 func swifthal_counter_open(_ id: CInt) -> UnsafeMutableRawPointer? {
-  // Darwin imports clockid_t as an enum; reject ids that do not map to one.
   #if os(Linux)
   let clockid = clockid_t(id)
   #else
-  guard let clockid = clockid_t(rawValue: UInt32(bitPattern: id)) else { return nil }
+  // Darwin imports clockid_t as a RawRepresentable struct with a non-failable
+  // init(rawValue:), so any bit pattern maps to a value.
+  let clockid = clockid_t(rawValue: UInt32(bitPattern: id))
   #endif
   let c = UnsafeMutablePointer<CounterHandle>.allocate(capacity: 1)
   c.initialize(to: CounterHandle(clockid: clockid))

@@ -29,7 +29,8 @@ let package = Package(
   platforms: [
     // specify each minimum deployment requirement,
     // otherwise the platform default minimum is used.
-    .macOS(.v10_15),
+    // macOS 15 is required for Synchronization's Atomic (Timer.swift, OS.swift).
+    .macOS(.v15),
   ],
   products: [
     // Products define the executables and libraries a package produces, and make them visible
