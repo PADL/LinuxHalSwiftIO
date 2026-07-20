@@ -15,8 +15,8 @@
 //
 
 // Native-Swift port of the counter HAL (previously swift_counter.c): a thin
-// wrapper over a POSIX clock. Most of the alarm/frequency surface is
-// unimplemented on Linux, matching the original.
+// wrapper over a POSIX clock, counting microsecond ticks. Alarms and callbacks
+// are unimplemented on Linux, matching the original.
 
 #if canImport(Glibc)
 import Glibc
@@ -74,9 +74,11 @@ func swifthal_counter_add_callback(
   -ENOSYS
 }
 
-@c func swifthal_counter_freq(_ arg: UnsafeMutableRawPointer?) -> UInt32 { 0 }
-@c func swifthal_counter_ticks_to_us(_ arg: UnsafeMutableRawPointer?, _ ticks: UInt32) -> UInt64 { 0 }
-@c func swifthal_counter_us_to_ticks(_ arg: UnsafeMutableRawPointer?, _ us: UInt64) -> UInt32 { 0 }
+// One tick == one microsecond (the old C stubbed these to 0, which made
+// counter_read discard its clock_gettime result and always report 0 ticks).
+@c func swifthal_counter_freq(_ arg: UnsafeMutableRawPointer?) -> UInt32 { 1_000_000 }
+@c func swifthal_counter_ticks_to_us(_ arg: UnsafeMutableRawPointer?, _ ticks: UInt32) -> UInt64 { UInt64(ticks) }
+@c func swifthal_counter_us_to_ticks(_ arg: UnsafeMutableRawPointer?, _ us: UInt64) -> UInt32 { UInt32(truncatingIfNeeded: us) }
 @c func swifthal_counter_get_max_top_value(_ arg: UnsafeMutableRawPointer?) -> UInt32 { UInt32.max }
 @c func swifthal_counter_set_channel_alarm(_ arg: UnsafeMutableRawPointer?, _ ticks: UInt32) -> CInt { -ENOSYS }
 @c func swifthal_counter_cancel_channel_alarm(_ arg: UnsafeMutableRawPointer?) -> CInt { -ENOSYS }

@@ -41,6 +41,10 @@ private final class Timer {
   }
 }
 
+private func handle(_ arg: UnsafeMutableRawPointer) -> Timer {
+  Unmanaged<Timer>.fromOpaque(arg).takeUnretainedValue()
+}
+
 @c
 func swifthal_timer_open() -> UnsafeMutableRawPointer? {
   Unmanaged.passRetained(Timer()).toOpaque()
@@ -49,15 +53,9 @@ func swifthal_timer_open() -> UnsafeMutableRawPointer? {
 @c
 func swifthal_timer_close(_ arg: UnsafeMutableRawPointer?) -> CInt {
   guard let arg else { return -EINVAL }
-  let timer = Unmanaged<Timer>.fromOpaque(arg).takeUnretainedValue()
+  let timer = handle(arg)
 
-  timer.source.cancel()
-  // A suspended source traps when its last reference is dropped; balance the
-  // suspend count back to zero before releasing.
-  if timer.suspended {
-    timer.source.resume()
-    timer.suspended = false
-  }
+  timer.source.cancelForRelease(&timer.suspended)
   Unmanaged<Timer>.fromOpaque(arg).release()
   return 0
 }
@@ -65,7 +63,7 @@ func swifthal_timer_close(_ arg: UnsafeMutableRawPointer?) -> CInt {
 @c
 func swifthal_timer_start(_ arg: UnsafeMutableRawPointer?, _ type: swift_timer_type_t, _ period: Int) -> CInt {
   guard let arg else { return -EINVAL }
-  let timer = Unmanaged<Timer>.fromOpaque(arg).takeUnretainedValue()
+  let timer = handle(arg)
 
   timer.type = type
   let interval = DispatchTimeInterval.milliseconds(Int(period))
@@ -74,25 +72,18 @@ func swifthal_timer_start(_ arg: UnsafeMutableRawPointer?, _ type: swift_timer_t
   } else {
     timer.source.schedule(deadline: .now() + interval, repeating: interval)
   }
-  // Resume only if suspended so re-arming a running timer does not over-resume.
-  if timer.suspended {
-    timer.source.resume()
-    timer.suspended = false
-  }
+  timer.source.resumeIfSuspended(&timer.suspended)
   return 0
 }
 
 @c
 func swifthal_timer_stop(_ arg: UnsafeMutableRawPointer?) -> CInt {
   guard let arg else { return -EINVAL }
-  let timer = Unmanaged<Timer>.fromOpaque(arg).takeUnretainedValue()
+  let timer = handle(arg)
 
   // Suspend rather than cancel: cancellation is permanent, so a cancel here
   // would leave a subsequent timer_start unable to re-arm the timer.
-  if !timer.suspended {
-    timer.source.suspend()
-    timer.suspended = true
-  }
+  timer.source.suspendIfRunning(&timer.suspended)
   return 0
 }
 
@@ -103,7 +94,7 @@ func swifthal_timer_add_callback(
   _ callback: (@convention(c) (UnsafeRawPointer?) -> Void)?
 ) -> CInt {
   guard let arg else { return -EINVAL }
-  let timer = Unmanaged<Timer>.fromOpaque(arg).takeUnretainedValue()
+  let timer = handle(arg)
 
   timer.callback = callback
   timer.param = param
@@ -120,6 +111,6 @@ func swifthal_timer_add_callback(
 @c
 func swifthal_timer_status_get(_ arg: UnsafeMutableRawPointer?) -> UInt32 {
   guard let arg else { return 0 }
-  let timer = Unmanaged<Timer>.fromOpaque(arg).takeUnretainedValue()
+  let timer = handle(arg)
   return timer.status.exchange(0, ordering: .relaxed)
 }

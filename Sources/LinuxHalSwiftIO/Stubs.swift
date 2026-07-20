@@ -66,7 +66,7 @@ import CLinuxHalSwiftIO
   // a caller reading them after -ENOSYS sees defined zeros, not stack garbage.
   width?.pointee = 0
   height?.pointee = 0
-  format.map { _ = memset($0, 0, MemoryLayout<swift_lcd_pixel_format_t>.size) }
+  format?.pointee = swift_lcd_pixel_format_t(0)
   bpp?.pointee = 0
   return -ENOSYS
 }

@@ -44,15 +44,15 @@ private final class GPIO {
   var callback: ((UInt8, timespec) -> Void)?
 }
 
+private func handle(_ arg: UnsafeMutableRawPointer) -> GPIO {
+  Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+}
+
 // Cancel and release the interrupt dispatch source, bringing its suspend count
 // to zero first. Safe to call with no source installed.
 private func releaseSource(_ gpio: GPIO) {
   guard let source = gpio.source else { return }
-  source.cancel()
-  if gpio.sourceSuspended {
-    source.resume()
-    gpio.sourceSuspended = false
-  }
+  source.cancelForRelease(&gpio.sourceSuspended)
   gpio.source = nil
 }
 
@@ -120,7 +120,7 @@ func swifthal_gpio_open(_ id: CInt, _ direction: swift_gpio_direction_t, _ ioMod
 func swifthal_gpio_close(_ arg: UnsafeMutableRawPointer?) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
-  let gpio = Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+  let gpio = handle(arg)
 
   // Release the dispatch source before closing the chip: gpiod_chip_close()
   // drops the line's event fd, and the cancel path traps on EBADF if it's gone.
@@ -139,7 +139,7 @@ func swifthal_gpio_close(_ arg: UnsafeMutableRawPointer?) -> CInt {
 func swifthal_gpio_config(_ arg: UnsafeMutableRawPointer?, _ direction: swift_gpio_direction_t, _ ioMode: swift_gpio_mode_t) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
-  let gpio = Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+  let gpio = handle(arg)
 
   releaseSource(gpio)
 
@@ -170,7 +170,7 @@ func swifthal_gpio_config(_ arg: UnsafeMutableRawPointer?, _ direction: swift_gp
 func swifthal_gpio_set(_ arg: UnsafeMutableRawPointer?, _ level: CInt) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
-  let gpio = Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+  let gpio = handle(arg)
   if gpiod_line_set_value(gpio.line, level) < 0 { return -errno }
   return 0
   #else
@@ -182,7 +182,7 @@ func swifthal_gpio_set(_ arg: UnsafeMutableRawPointer?, _ level: CInt) -> CInt {
 func swifthal_gpio_get(_ arg: UnsafeMutableRawPointer?) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
-  let gpio = Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+  let gpio = handle(arg)
   let value = gpiod_line_get_value(gpio.line)
   if value < 0 { return -errno }
   return value
@@ -195,7 +195,7 @@ func swifthal_gpio_get(_ arg: UnsafeMutableRawPointer?) -> CInt {
 func swifthal_gpio_interrupt_config(_ arg: UnsafeMutableRawPointer?, _ intMode: swift_gpio_int_mode_t) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
-  let gpio = Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+  let gpio = handle(arg)
 
   // Release any prior source so reconfiguring the edge mode does not leak it.
   releaseSource(gpio)
@@ -244,7 +244,7 @@ public func swifthal_gpio_interrupt_callback_install_block(
   _ callback: @escaping (UInt8, timespec) -> Void
 ) -> CInt {
   #if os(Linux)
-  let gpio = Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+  let gpio = handle(arg)
   guard let source = gpio.source else { return -EINVAL }
 
   gpio.callback = callback
@@ -253,7 +253,9 @@ public func swifthal_gpio_interrupt_callback_install_block(
     let fd = CInt(source.handle)
     var event = gpiod_line_event()
     if gpiod_line_event_read_fd(fd, &event) < 0 {
-      source.cancel()
+      // Tear down fully: a cancelled-but-installed source would strand later
+      // disable/enable calls on a dead source (see callback_uninstall).
+      releaseSource(gpio)
       return
     }
     gpio.callback?(event.event_type == CInt(GPIOD_LINE_EVENT_RISING_EDGE) ? 1 : 0, event.ts)
@@ -280,7 +282,7 @@ func swifthal_gpio_interrupt_callback_install(
 func swifthal_gpio_interrupt_callback_uninstall(_ arg: UnsafeMutableRawPointer?) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
-  let gpio = Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+  let gpio = handle(arg)
   // Fully tear down (cancel + rebalance + clear) rather than only cancel: cancel
   // is permanent, and resuming a dead source would silently drop all events.
   releaseSource(gpio)
@@ -294,13 +296,9 @@ func swifthal_gpio_interrupt_callback_uninstall(_ arg: UnsafeMutableRawPointer?)
 func swifthal_gpio_interrupt_enable(_ arg: UnsafeMutableRawPointer?) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
-  let gpio = Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+  let gpio = handle(arg)
   guard let source = gpio.source else { return -EINVAL }
-  // Idempotent: resume only when currently suspended.
-  if gpio.sourceSuspended {
-    source.resume()
-    gpio.sourceSuspended = false
-  }
+  source.resumeIfSuspended(&gpio.sourceSuspended)
   return 0
   #else
   return -ENOSYS
@@ -311,15 +309,11 @@ func swifthal_gpio_interrupt_enable(_ arg: UnsafeMutableRawPointer?) -> CInt {
 func swifthal_gpio_interrupt_disable(_ arg: UnsafeMutableRawPointer?) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
-  let gpio = Unmanaged<GPIO>.fromOpaque(arg).takeUnretainedValue()
+  let gpio = handle(arg)
   // With no source (e.g. after callback_uninstall) the interrupt is already
   // effectively disabled; a no-op, as SwiftIO's teardown paths expect success.
   guard let source = gpio.source else { return 0 }
-  // Idempotent: suspend only when currently running.
-  if !gpio.sourceSuspended {
-    source.suspend()
-    gpio.sourceSuspended = true
-  }
+  source.suspendIfRunning(&gpio.sourceSuspended)
   return 0
   #else
   return -ENOSYS
@@ -343,7 +337,7 @@ func swifthal_gpio_dev_number_get() -> CInt {
 func swifthal_gpio_get_fd(_ arg: UnsafeRawPointer?) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
-  let gpio = Unmanaged<GPIO>.fromOpaque(UnsafeMutableRawPointer(mutating: arg)).takeUnretainedValue()
+  let gpio = handle(UnsafeMutableRawPointer(mutating: arg))
   return gpiod_line_event_get_fd(gpio.line)
   #else
   return -ENOSYS

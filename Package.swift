@@ -52,9 +52,8 @@ let package = Package(
     .package(url: "https://github.com/apple/swift-system", from: "1.0.0"),
   ],
   targets: [
-    // Residual C implementation: peripherals not yet migrated to Swift, plus the
-    // inline-assembly hwcycle functions and the ioctl/mq_open C shims that the
-    // Swift layer calls. Also exports the public HAL headers.
+    // Residual C the Swift HAL calls (inline-assembly hwcycle, termios2 UART
+    // helpers, fs mount point, ioctl/mq/syslog shims) plus the public HAL headers.
     .target(
       name: "CLinuxHalSwiftIO",
       dependencies: [
