@@ -24,6 +24,11 @@ func tryGuessSwiftLibRoot() -> String {
 
 let SwiftLibRoot = EnvSysRoot != nil ? "\(EnvSysRoot!)/usr/lib/swift" : tryGuessSwiftLibRoot()
 
+// Default in Swift 7; changes mangling, so rebuild dependents.
+let CommonSwiftSettings: [SwiftSetting] = [
+  .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+]
+
 let package = Package(
   name: "LinuxHalSwiftIO",
   platforms: [
@@ -72,7 +77,8 @@ let package = Package(
       dependencies: [
         "CLinuxHalSwiftIO",
         .product(name: "CSwiftIO", package: "SwiftIO"),
-      ]
+      ],
+      swiftSettings: CommonSwiftSettings
     ),
     .target(
       name: "AsyncSwiftIO",
@@ -87,7 +93,8 @@ let package = Package(
           package: "IORingSwift",
           condition: .when(platforms: [.linux])
         ),
-      ]
+      ],
+      swiftSettings: CommonSwiftSettings
     ),
     .executableTarget(
       name: "SPIMonitor",
@@ -95,7 +102,8 @@ let package = Package(
         "AsyncSwiftIO",
         "SwiftIO",
       ],
-      path: "Examples/SPIMonitor"
+      path: "Examples/SPIMonitor",
+      swiftSettings: CommonSwiftSettings
     ),
     .executableTarget(
       name: "UARTMonitor",
@@ -103,14 +111,16 @@ let package = Package(
         "AsyncSwiftIO",
         "SwiftIO",
       ],
-      path: "Examples/UARTMonitor"
+      path: "Examples/UARTMonitor",
+      swiftSettings: CommonSwiftSettings
     ),
     .testTarget(
       name: "LinuxHalSwiftIOTests",
       dependencies: [
         .target(name: "LinuxHalSwiftIO"),
         .target(name: "AsyncSwiftIO"),
-      ]
+      ],
+      swiftSettings: CommonSwiftSettings
     ),
   ],
   // Keep the Swift 5 language mode the package built with under tools 5.7.
