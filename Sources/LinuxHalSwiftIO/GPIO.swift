@@ -30,11 +30,15 @@ import CLinuxHalSwiftIO
 import Dispatch
 
 #if os(Linux)
-private let gpioChip = "gpiochip0" // FIXME: make configurable
+private let gpioChip = "/dev/gpiochip0" // FIXME: make configurable
+private let gpioConsumer = "SwiftIO"
+private let edgeEventBufferCapacity = 16
 
 private final class GPIO {
   var chip: OpaquePointer? // gpiod_chip *
-  var line: OpaquePointer? // gpiod_line *
+  var offset: UInt32 = 0
+  var request: OpaquePointer? // gpiod_line_request *
+  var eventBuffer: OpaquePointer? // gpiod_edge_event_buffer *
   var direction = SWIFT_GPIO_DIRECTION_OUT
   var ioMode = SWIFT_GPIO_MODE_PULL_NONE
   var intMode = SWIFT_GPIO_INT_MODE_RISING_EDGE
@@ -56,17 +60,51 @@ private func releaseSource(_ gpio: GPIO) {
   gpio.source = nil
 }
 
-private func ioModeFlags(_ ioMode: swift_gpio_mode_t) -> CInt? {
+/// Request the line with the given settings, or reconfigure the existing request
+/// in place (keeping its file descriptor) if the line is already requested.
+private func requestLine(
+  _ gpio: GPIO,
+  direction: gpiod_line_direction,
+  ioMode: swift_gpio_mode_t,
+  edge: gpiod_line_edge = GPIOD_LINE_EDGE_NONE
+) -> CInt {
+  guard let settings = gpiod_line_settings_new() else { return -errno }
+  defer { gpiod_line_settings_free(settings) }
+
+  gpiod_line_settings_set_direction(settings, direction)
+  gpiod_line_settings_set_edge_detection(settings, edge)
   switch ioMode {
-  case SWIFT_GPIO_MODE_PULL_UP: return CInt(GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_UP)
-  case SWIFT_GPIO_MODE_PULL_DOWN: return CInt(GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_DOWN)
-  case SWIFT_GPIO_MODE_PULL_NONE: return CInt(GPIOD_LINE_REQUEST_FLAG_BIAS_DISABLE)
-  case SWIFT_GPIO_MODE_OPEN_DRAIN: return CInt(GPIOD_LINE_REQUEST_FLAG_OPEN_DRAIN)
-  default: return nil
+  case SWIFT_GPIO_MODE_PULL_UP: gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_PULL_UP)
+  case SWIFT_GPIO_MODE_PULL_DOWN: gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_PULL_DOWN)
+  case SWIFT_GPIO_MODE_PULL_NONE: gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_DISABLED)
+  case SWIFT_GPIO_MODE_OPEN_DRAIN: gpiod_line_settings_set_drive(
+      settings,
+      GPIOD_LINE_DRIVE_OPEN_DRAIN
+    )
+  default: return -EINVAL
   }
+
+  guard let lineConfig = gpiod_line_config_new() else { return -errno }
+  defer { gpiod_line_config_free(lineConfig) }
+  var offset = gpio.offset
+  if gpiod_line_config_add_line_settings(lineConfig, &offset, 1, settings) < 0 { return -errno }
+
+  if let request = gpio.request {
+    if gpiod_line_request_reconfigure_lines(request, lineConfig) < 0 { return -errno }
+    return 0
+  }
+
+  guard let requestConfig = gpiod_request_config_new() else { return -errno }
+  defer { gpiod_request_config_free(requestConfig) }
+  gpiod_request_config_set_consumer(requestConfig, gpioConsumer)
+
+  guard let request = gpiod_chip_request_lines(gpio.chip, requestConfig, lineConfig)
+  else { return -errno }
+  gpio.request = request
+  return 0
 }
 
-/// Takes ownership of `chip`, wires up the line, and returns the retained opaque
+/// Takes ownership of `chip`, requests the line, and returns the retained opaque
 /// handle (or nil, having closed the chip, on failure).
 private func chip2gpio(
   _ id: CInt,
@@ -76,12 +114,7 @@ private func chip2gpio(
 ) -> UnsafeMutableRawPointer? {
   let gpio = GPIO()
   gpio.chip = chip
-
-  gpio.line = gpiod_chip_get_line(chip, UInt32(bitPattern: id))
-  if gpio.line == nil {
-    gpiod_chip_close(chip)
-    return nil
-  }
+  gpio.offset = UInt32(bitPattern: id)
 
   let opaque = Unmanaged.passRetained(gpio).toOpaque()
   if swifthal_gpio_config(opaque, direction, ioMode) < 0 {
@@ -89,6 +122,12 @@ private func chip2gpio(
     return nil
   }
   return opaque
+}
+
+private func chipLabel(_ chip: OpaquePointer) -> String? {
+  guard let info = gpiod_chip_get_info(chip) else { return nil }
+  defer { gpiod_chip_info_free(info) }
+  return String(cString: gpiod_chip_info_get_label(info))
 }
 #endif
 
@@ -99,23 +138,22 @@ func swifthal_gpio_open(
   _ ioMode: swift_gpio_mode_t
 ) -> UnsafeMutableRawPointer? {
   #if os(Linux)
+  // libgpiod v2 has no chip iterator; scan /dev in sorted order, as v1 did.
   // http://git.munts.com/muntsos/doc/AppNote11-link-gpiochip.pdf
-  guard let iter = gpiod_chip_iter_new() else { return nil }
+  var paths = glob_t()
+  defer { globfree(&paths) }
+  guard glob("/dev/gpiochip*", 0, nil, &paths) == 0 else { return nil }
 
-  var chip = gpiod_chip_iter_next(iter)
-  while let c = chip {
-    if let label = gpiod_chip_label(c) {
-      let name = String(cString: label)
-      if name == "pinctrl-rp1" || name == "pinctrl-bcm2835" || name == "pinctrl-bcm2711" {
-        let gpio = chip2gpio(id, c, direction, ioMode)
-        gpiod_chip_iter_free_noclose(iter)
-        return gpio
-      }
+  for i in 0..<Int(paths.gl_pathc) {
+    guard let path = paths.gl_pathv[i], gpiod_is_gpiochip_device(path),
+          let chip = gpiod_chip_open(path) else { continue }
+    switch chipLabel(chip) {
+    case "pinctrl-rp1", "pinctrl-bcm2835", "pinctrl-bcm2711":
+      return chip2gpio(id, chip, direction, ioMode)
+    default:
+      gpiod_chip_close(chip)
     }
-    chip = gpiod_chip_iter_next(iter)
   }
-
-  gpiod_chip_iter_free(iter)
   #endif
   return nil
 }
@@ -126,9 +164,16 @@ func swifthal_gpio_close(_ arg: UnsafeMutableRawPointer?) -> CInt {
   guard let arg else { return -EINVAL }
   let gpio = handle(arg)
 
-  // Release the dispatch source before closing the chip: gpiod_chip_close()
-  // drops the line's event fd, and the cancel path traps on EBADF if it's gone.
+  // Release the dispatch source before releasing the request:
+  // gpiod_line_request_release() closes the event fd, and the cancel path traps
+  // on EBADF if it's gone.
   releaseSource(gpio)
+  if let request = gpio.request {
+    gpiod_line_request_release(request)
+  }
+  if let eventBuffer = gpio.eventBuffer {
+    gpiod_edge_event_buffer_free(eventBuffer)
+  }
   if let chip = gpio.chip {
     gpiod_chip_close(chip)
   }
@@ -151,20 +196,15 @@ func swifthal_gpio_config(
 
   releaseSource(gpio)
 
-  var lrc = gpiod_line_request_config()
-  lrc.consumer = swifthal_gpio__consumer()
-  lrc.flags = 0
-
+  let lineDirection: gpiod_line_direction
   switch direction {
-  case SWIFT_GPIO_DIRECTION_OUT: lrc.request_type = CInt(GPIOD_LINE_REQUEST_DIRECTION_OUTPUT)
-  case SWIFT_GPIO_DIRECTION_IN: lrc.request_type = CInt(GPIOD_LINE_REQUEST_DIRECTION_INPUT)
+  case SWIFT_GPIO_DIRECTION_OUT: lineDirection = GPIOD_LINE_DIRECTION_OUTPUT
+  case SWIFT_GPIO_DIRECTION_IN: lineDirection = GPIOD_LINE_DIRECTION_INPUT
   default: return -EINVAL
   }
 
-  guard let flags = ioModeFlags(ioMode) else { return -EINVAL }
-  lrc.flags = flags
-
-  if gpiod_line_request(gpio.line, &lrc, 0) < 0 { return -errno }
+  let err = requestLine(gpio, direction: lineDirection, ioMode: ioMode)
+  if err < 0 { return err }
 
   gpio.direction = direction
   gpio.ioMode = ioMode
@@ -179,7 +219,9 @@ func swifthal_gpio_set(_ arg: UnsafeMutableRawPointer?, _ level: CInt) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
   let gpio = handle(arg)
-  if gpiod_line_set_value(gpio.line, level) < 0 { return -errno }
+  guard let request = gpio.request else { return -EINVAL }
+  let value = level != 0 ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE
+  if gpiod_line_request_set_value(request, gpio.offset, value) < 0 { return -errno }
   return 0
   #else
   return -ENOSYS
@@ -191,9 +233,10 @@ func swifthal_gpio_get(_ arg: UnsafeMutableRawPointer?) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
   let gpio = handle(arg)
-  let value = gpiod_line_get_value(gpio.line)
-  if value < 0 { return -errno }
-  return value
+  guard let request = gpio.request else { return -EINVAL }
+  let value = gpiod_line_request_get_value(request, gpio.offset)
+  if value == GPIOD_LINE_VALUE_ERROR { return -errno }
+  return value.rawValue
   #else
   return -ENOSYS
   #endif
@@ -211,29 +254,30 @@ func swifthal_gpio_interrupt_config(
   // Release any prior source so reconfiguring the edge mode does not leak it.
   releaseSource(gpio)
 
-  var lrc = gpiod_line_request_config()
-  lrc.consumer = swifthal_gpio__consumer()
-  lrc.flags = 0
-
+  let edge: gpiod_line_edge
   switch intMode {
-  case SWIFT_GPIO_INT_MODE_RISING_EDGE: lrc
-    .request_type = CInt(GPIOD_LINE_REQUEST_EVENT_RISING_EDGE)
-  case SWIFT_GPIO_INT_MODE_FALLING_EDGE: lrc
-    .request_type = CInt(GPIOD_LINE_REQUEST_EVENT_FALLING_EDGE)
-  case SWIFT_GPIO_INT_MODE_BOTH_EDGE: lrc.request_type = CInt(GPIOD_LINE_REQUEST_EVENT_BOTH_EDGES)
+  case SWIFT_GPIO_INT_MODE_RISING_EDGE: edge = GPIOD_LINE_EDGE_RISING
+  case SWIFT_GPIO_INT_MODE_FALLING_EDGE: edge = GPIOD_LINE_EDGE_FALLING
+  case SWIFT_GPIO_INT_MODE_BOTH_EDGE: edge = GPIOD_LINE_EDGE_BOTH
   default: return -EINVAL
   }
 
-  guard let flags = ioModeFlags(gpio.ioMode) else { return -EINVAL }
-  lrc.flags = flags
-
-  if gpiod_line_is_requested(gpio.line) {
-    gpiod_line_release(gpio.line)
+  if gpio.eventBuffer == nil {
+    gpio.eventBuffer = gpiod_edge_event_buffer_new(edgeEventBufferCapacity)
+    if gpio.eventBuffer == nil { return -errno }
   }
 
-  if gpiod_line_request(gpio.line, &lrc, 0) < 0 { return -errno }
+  // Edge detection requires an input line (v1 event requests were implicitly
+  // input too).
+  let err = requestLine(
+    gpio,
+    direction: GPIOD_LINE_DIRECTION_INPUT,
+    ioMode: gpio.ioMode,
+    edge: edge
+  )
+  if err < 0 { return err }
 
-  let fd = gpiod_line_event_get_fd(gpio.line)
+  let fd = gpiod_line_request_get_fd(gpio.request)
   if fd < 0 { return -errno }
 
   let source: any DispatchSourceProtocol = gpio.direction == SWIFT_GPIO_DIRECTION_OUT
@@ -262,16 +306,28 @@ package func swifthal_gpio_interrupt_callback_install_block(
 
   gpio.callback = callback
   source.setEventHandler { [weak gpio] in
-    guard let gpio, let source = gpio.source else { return }
-    let fd = CInt(source.handle)
-    var event = gpiod_line_event()
-    if gpiod_line_event_read_fd(fd, &event) < 0 {
+    guard let gpio, gpio.source != nil, let request = gpio.request,
+          let buffer = gpio.eventBuffer else { return }
+    let count = gpiod_line_request_read_edge_events(
+      request,
+      buffer,
+      gpiod_edge_event_buffer_get_capacity(buffer)
+    )
+    if count < 0 {
       // Tear down fully: a cancelled-but-installed source would strand later
       // disable/enable calls on a dead source (see callback_uninstall).
       releaseSource(gpio)
       return
     }
-    gpio.callback?(event.event_type == CInt(GPIOD_LINE_EVENT_RISING_EDGE), event.ts)
+    for i in 0..<UInt(count) {
+      guard let event = gpiod_edge_event_buffer_get_event(buffer, i) else { continue }
+      let ns = gpiod_edge_event_get_timestamp_ns(event)
+      let ts = timespec(
+        tv_sec: time_t(ns / 1_000_000_000),
+        tv_nsec: Int(ns % 1_000_000_000)
+      )
+      gpio.callback?(gpiod_edge_event_get_event_type(event) == GPIOD_EDGE_EVENT_RISING_EDGE, ts)
+    }
   }
   return 0
   #else
@@ -336,11 +392,11 @@ func swifthal_gpio_interrupt_disable(_ arg: UnsafeMutableRawPointer?) -> CInt {
 @c
 func swifthal_gpio_dev_number_get() -> CInt {
   #if os(Linux)
-  guard let chip = gpiod_chip_open_by_name(gpioChip) else { return 0 }
+  guard let chip = gpiod_chip_open(gpioChip) else { return 0 }
   defer { gpiod_chip_close(chip) }
-  var bulk = gpiod_line_bulk()
-  gpiod_chip_get_all_lines(chip, &bulk)
-  return CInt(bulk.num_lines)
+  guard let info = gpiod_chip_get_info(chip) else { return 0 }
+  defer { gpiod_chip_info_free(info) }
+  return CInt(gpiod_chip_info_get_num_lines(info))
   #else
   return 0
   #endif
@@ -351,7 +407,8 @@ func swifthal_gpio_get_fd(_ arg: UnsafeRawPointer?) -> CInt {
   #if os(Linux)
   guard let arg else { return -EINVAL }
   let gpio = handle(UnsafeMutableRawPointer(mutating: arg))
-  return gpiod_line_event_get_fd(gpio.line)
+  guard let request = gpio.request else { return -EINVAL }
+  return gpiod_line_request_get_fd(request)
   #else
   return -ENOSYS
   #endif

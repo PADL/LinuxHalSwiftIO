@@ -14,16 +14,12 @@
 // limitations under the License.
 //
 
-// Exposes libgpiod to the native-Swift GPIO implementation (GPIO.swift). The
-// request-type/flag values are enum constants (not bare macros) and the structs
-// import cleanly, so no wrappers are needed; Swift calls gpiod directly.
+// Exposes libgpiod (v2 API) to the native-Swift GPIO implementation
+// (GPIO.swift). The objects are opaque and the settings are enum constants (not
+// bare macros), so no wrappers are needed; Swift calls gpiod directly.
 
 #pragma once
 
 #ifdef __linux__
 #include <gpiod.h>
 #endif
-
-// The libgpiod consumer label, as a permanent C string literal (infallible,
-// unlike a Swift String or strdup()).
-static inline const char *swifthal_gpio__consumer(void) { return "SwiftIO"; }
